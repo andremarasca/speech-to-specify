@@ -18,6 +18,8 @@ Explique como os modelos de dados e as interfaces de comunicação serão estabe
 
 Use linguagem informal, mas sem gírias. Escreva como quem conversa com um colega experiente: sem cerimônia, mas com respeito e clareza. Prolixidade é proibida. Cada frase deve carregar peso. Se uma palavra não adiciona valor, corte.
 
+O texto deve deixar explícito que a decomposição em etapas pressupõe um regime obrigatório de commits frequentes, atômicos e controlados. Cada etapa descrita na narrativa deve ser pensada como potencialmente comitável, e sempre que um bloco de trabalho atingir completude lógica, coerência semântica e funcionalidade autônoma, um commit deve ser realizado. O agente responsável pelas tarefas deve tratar o commit como parte do próprio fluxo de execução, não como um evento posterior ou implícito. Nenhuma tarefa deve avançar enquanto o incremento atual não puder sofrer rollback imediato sem comprometer o funcionamento do sistema. Se houver qualquer risco de quebra, instabilidade ou dependência futura, o trabalho permanece em estado não comitável. A narrativa deve reforçar que commits não podem agregar código morto, não podem misturar refatoração com entrega funcional e não podem conter múltiplas intenções técnicas. O critério decisório é binário e inegociável: cada avanço só é válido se o sistema continuar plenamente operacional após a reversão isolada desse commit.
+
 ## Formato de Saída
 
 Prosa literária pragmática em texto contínuo, organizada nas seguintes seções:
