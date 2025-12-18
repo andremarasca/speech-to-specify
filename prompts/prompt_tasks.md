@@ -28,8 +28,8 @@ A primeira seção, Preparação e Alicerce, apresenta a estratégia de iniciali
 
 ## Dados de Entrada
 
-**Memorial Descritivo:**
-{{MEMORIAL_DESCRITIVO}}
+**Plano Descritivo:**
+{{PLANO_DESCRITIVO}}
 
 **Especificação Narrativa:**
 {{ESPECIFICACAO_NARRATIVA}}
