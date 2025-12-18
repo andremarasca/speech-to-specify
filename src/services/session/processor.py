@@ -111,18 +111,22 @@ class DownstreamProcessor:
         input_path = self.consolidate_transcripts(session)
 
         # Import here to avoid circular imports
+        import argparse
         from src.cli.main import run as run_pipeline
 
         try:
             # Run the narrative pipeline
             logger.info(f"Starting narrative pipeline for session {session.id}")
 
-            result = run_pipeline(
-                input_path=str(input_path),
+            # Create args namespace matching CLI expectations
+            args = argparse.Namespace(
+                input_file=str(input_path),
                 output_dir=str(output_dir),
                 provider=provider,
                 verbose=False,
             )
+
+            result = run_pipeline(args)
 
             if result != 0:
                 raise ProcessingError(f"Pipeline returned non-zero exit code: {result}")

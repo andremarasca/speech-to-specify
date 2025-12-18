@@ -506,11 +506,13 @@ class VoiceOrchestrator:
             except Exception:
                 pass
 
+            # Escape error message for Markdown
+            error_msg = str(e).replace("_", "\\_").replace("*", "\\*").replace("`", "\\`")
             await self.bot.send_message(
                 event.chat_id,
                 f"❌ *Processing Failed*\n\n"
                 f"🆔 Session: `{target_session.id}`\n"
-                f"⚠️ Error: {e}\n\n"
+                f"⚠️ Error: {error_msg}\n\n"
                 f"Check logs for details.",
                 parse_mode="Markdown",
             )
