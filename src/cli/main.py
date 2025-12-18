@@ -63,8 +63,8 @@ Examples:
         "--provider",
         type=str,
         default=None,
-        choices=["openai", "anthropic", "mock"],
-        help="LLM provider to use (default: openai)",
+        choices=["deepseek", "openai", "anthropic", "mock"],
+        help="LLM provider to use (default: deepseek)",
     )
 
     parser.add_argument(
