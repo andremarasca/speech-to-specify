@@ -18,19 +18,21 @@ A Constituição é um artefato normativo superior. Ela não adiciona escopo, n�
 
 ## Filosofia de Escrita Mandatória
 
-O texto deve conectar o desejo do usuário ao valor gerado, mantendo foco absoluto em impacto humano, utilidade prática e viabilidade conceitual. Use linguagem acadêmica impessoal, sendo proibido empregar vocabulário de engenharia de software, descrevendo apenas ações, estados, dados conceituais e resultados mensuráveis.
+O texto deve conectar o desejo do usuário ao valor gerado, mantendo foco em impacto humano, utilidade prática e viabilidade conceitual. É proibido usar vocabulário de engenharia de software. Descreva apenas ações, estados, dados conceituais e resultados mensuráveis.
 
-Escreva em parágrafos longos, densos e interligados. A narrativa deve identificar claramente atores, intenções, interações e consequências, sem listas nem fragmentação. Descreva jornadas de usuário completas, independentes e testáveis, antecipando casos de borda, falhas e limites operacionais dentro da narrativa como parte natural da experiência.
+Escreva em parágrafos objetivos e interligados. A narrativa deve identificar claramente atores, intenções, interações e consequências, sem listas nem fragmentação. Descreva jornadas de usuário completas, independentes e testáveis, antecipando casos de borda, falhas e limites operacionais como parte natural da experiência.
 
-Não faça perguntas. Preencha lacunas usando padrões consolidados de mercado e intuição técnica madura. Essas decisões devem aparecer como premissas implícitas, nunca como dúvidas abertas. Defina sucesso apenas por métricas centradas no usuário, como tempo, clareza, esforço cognitivo ou taxa de conclusão, nunca utilizando métricas técnicas ou de infraestrutura.
+Não faça perguntas. Preencha lacunas usando padrões consolidados de mercado e intuição técnica madura. Essas decisões devem aparecer como premissas implícitas, nunca como dúvidas abertas. Defina sucesso apenas por métricas centradas no usuário: tempo, clareza, esforço cognitivo ou taxa de conclusão. Nunca use métricas técnicas ou de infraestrutura.
 
 Identifique entidades centrais e suas relações lógicas como um mapa conceitual narrativo, sem descrever esquemas, tabelas ou estruturas físicas de dados.
 
+Use linguagem informal, mas sem gírias. Escreva como quem conversa com um colega experiente: sem cerimônia, mas com respeito e clareza. Prolixidade é proibida. Cada frase deve carregar peso. Se uma palavra não adiciona valor, corte.
+
 ## Formato de Saída
 
-Prosa literária estruturada em texto contínuo, organizada nas seguintes seções narrativas:
+Prosa literária pragmática em texto contínuo, organizada nas seguintes seções:
 
-A primeira seção, Fundamentação e Contexto, apresenta a análise do problema, do valor gerado e do enquadramento constitucional da solução. A segunda seção, Narrativa da Experiência, oferece descrição fluida das jornadas do usuário, critérios de aceitação implícitos e comportamentos esperados. A terceira seção, Resiliência Operacional, explora narrativamente falhas, exceções e condições de contorno, demonstrando maturidade sistêmica. A quarta seção, Validação de Êxito, conclui com indicadores claros de sucesso centrados na experiência humana.
+A primeira seção, Fundamentação e Contexto, apresenta a análise do problema, do valor gerado e do enquadramento constitucional da solução. A segunda seção, Narrativa da Experiência, descreve as jornadas do usuário, critérios de aceitação implícitos e comportamentos esperados. A terceira seção, Resiliência Operacional, explora falhas, exceções e condições de contorno com maturidade sistêmica. A quarta seção, Validação de Êxito, conclui com indicadores claros de sucesso centrados na experiência humana.
 
 ---
 

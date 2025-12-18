@@ -14,13 +14,15 @@ Ao processar o brainstorm, concentre-se em identificar quatro categorias fundame
 
 ## Diretrizes de Escrita
 
-A escrita deve ser curta e forte, utilizando sentenças declarativas e substituindo construções como "seria bom que fosse" por "O sistema DEVE". A linguagem deve ser impessoal e acadêmica, transformando desejos em princípios, convertendo expressões como "odeio bug em produção" para "Princípio da Tolerância Zero a Falhas Não Testadas". A abstração deve ser estratégica, descrevendo não funcionalidades, mas a forma como qualquer funcionalidade deve ser construída.
+A escrita deve ser direta e objetiva, usando sentenças declarativas sem rodeios. Troque construções como "seria bom que fosse" por "O sistema DEVE". Transforme desejos em princípios claros, convertendo expressões como "odeio bug em produção" para "Tolerância Zero a Falhas Não Testadas". A abstração deve ser estratégica, descrevendo não funcionalidades, mas a forma como qualquer funcionalidade deve ser construída.
+
+Use linguagem informal, mas sem gírias. Escreva como quem conversa com um colega experiente: sem cerimônia, mas com respeito e clareza. Prolixidade é proibida. Cada frase deve carregar peso. Se uma palavra não adiciona valor, corte.
 
 ## Formato de Saída
 
-Prosa literária estruturada em texto contínuo, organizada nas seguintes seções narrativas:
+Prosa literária pragmática em texto contínuo, organizada nas seguintes seções:
 
-O texto deve iniciar com a identificação ou sugestão do Nome do Projeto, seguido pelos Cinco Pilares fundamentais, apresentados como parágrafos densos que descrevem os princípios fundamentais extraídos. Na sequência, uma Seção de Restrições apresentará em parágrafo único o que o projeto se recusa a ser ou fazer. Por fim, a seção de Governança e Evolução descreverá como as decisões devem ser tomadas e registradas.
+O texto começa com o Nome do Projeto, seguido pelos Cinco Pilares fundamentais em parágrafos curtos e densos. Depois, uma Seção de Restrições mostra em parágrafo único o que o projeto se recusa a ser ou fazer. Por fim, Governança e Evolução descreve como as decisões devem ser tomadas e registradas.
 
 ---
 

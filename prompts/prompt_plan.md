@@ -10,17 +10,19 @@ Este texto será a entrada para agentes de automação subsequentes. Portanto, e
 
 ## Diretrizes de Escrita
 
-Escreva em parágrafos fluidos, abordando a estratégia de dados, a lógica de integração e a filosofia de interface como se estivesse escrevendo um capítulo sobre arquitetura de sistemas. Cruze a Especificação Narrativa, que representa o valor, com a Transcrição do Brainstorm, que contém as pistas técnicas. Sua missão é dar coerência às ideias soltas do brainstorm, moldando-as sob o rigor da Constituição.
+Escreva em parágrafos diretos, abordando a estratégia de dados, a lógica de integração e a filosofia de interface sem enrolação. Cruze a Especificação Narrativa, que representa o valor, com a Transcrição do Brainstorm, que contém as pistas técnicas. Sua missão é dar coerência às ideias soltas do brainstorm, moldando-as sob o rigor da Constituição.
 
-Descreva como a solução será sustentada, como o estado será gerenciado e como a segurança e a privacidade, conforme a Constituição, estão tecidas na própria lógica do design, e não apenas como um anexo. Evite listar endpoints ou tabelas, preferindo descrever os Fluxos de Informação e os Contratos de Confiança entre as partes do sistema.
+Descreva como a solução vai se sustentar, como o estado será gerenciado e como a segurança e a privacidade estão tecidas na própria lógica do design, não como um anexo. Evite listar endpoints ou tabelas. Prefira descrever os Fluxos de Informação e os Contratos de Confiança entre as partes do sistema.
 
-Una a razão técnica com a intuição de produto. Se o brainstorm sugeriu algo ineficiente, proponha no texto a alternativa superior, justificando-a de forma acadêmica e impessoal.
+Una a razão técnica com a intuição de produto. Se o brainstorm sugeriu algo ineficiente, proponha a alternativa superior e justifique de forma clara e objetiva.
+
+Use linguagem informal, mas sem gírias. Escreva como quem conversa com um colega experiente: sem cerimônia, mas com respeito e clareza. Prolixidade é proibida. Cada frase deve carregar peso. Se uma palavra não adiciona valor, corte.
 
 ## Formato de Saída
 
-Prosa literária estruturada em texto contínuo, organizada nas seguintes seções narrativas:
+Prosa literária pragmática em texto contínuo, organizada nas seguintes seções:
 
-A primeira seção, A Estratégia de Design, apresenta um texto denso sobre a abordagem arquitetônica escolhida e por que ela é a mais adequada para este problema. A segunda seção, A Lógica do Domínio, descreve como as entidades e dados interagem entre si para dar vida à especificação. A terceira seção, Sustentabilidade e Segurança, oferece uma dissertação sobre a robustez da solução, garantindo que o sistema seja auditável, determinístico e seguro por design.
+A primeira seção, A Estratégia de Design, apresenta a abordagem arquitetônica escolhida e por que ela é a mais adequada para este problema. A segunda seção, A Lógica do Domínio, descreve como as entidades e dados interagem entre si para dar vida à especificação. A terceira seção, Sustentabilidade e Segurança, trata da robustez da solução, garantindo que o sistema seja auditável, determinístico e seguro por design.
 
 ---
 
