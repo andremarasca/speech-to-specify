@@ -172,19 +172,19 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 ### Tests for User Story 4
 
-- [ ] T056 [US4] Contract test for OpenAI adapter in tests/contract/test_llm_provider.py
-- [ ] T057 [P] [US4] Contract test for Anthropic adapter in tests/contract/test_llm_provider.py
-- [ ] T058 [US4] Integration test switching providers via config in tests/integration/test_providers.py
+- [X] T056 [US4] Contract test for OpenAI adapter in tests/contract/test_llm_provider.py
+- [X] T057 [P] [US4] Contract test for Anthropic adapter in tests/contract/test_llm_provider.py
+- [X] T058 [US4] Integration test switching providers via config in tests/integration/test_providers.py
 
 ### Implementation for User Story 4
 
-- [ ] T059 [US4] Implement OpenAIProvider adapter with httpx in src/services/llm/openai.py
-- [ ] T060 [P] [US4] Implement AnthropicProvider adapter with httpx in src/services/llm/anthropic.py
-- [ ] T061 [US4] Add provider selection via Settings.llm_provider in src/services/llm/__init__.py
-- [ ] T062 [US4] Add --provider CLI flag per contract in src/cli/main.py
-- [ ] T063 [US4] Add ConfigError exit code (2) for missing API key in src/cli/main.py
+- [X] T059 [US4] Implement OpenAIProvider adapter with httpx in src/services/llm/openai.py
+- [X] T060 [P] [US4] Implement AnthropicProvider adapter with httpx in src/services/llm/anthropic.py
+- [X] T061 [US4] Add provider selection via Settings.llm_provider in src/services/llm/__init__.py
+- [X] T062 [US4] Add --provider CLI flag per contract in src/cli/main.py
+- [X] T063 [US4] Add ConfigError exit code (2) for missing API key in src/cli/main.py
 
-**Checkpoint**: User Story 4 complete. `NARRATE_PROVIDER=anthropic python -m src.cli.main sample.txt` works.
+**Checkpoint**: User Story 4 complete. `NARRATE_PROVIDER=anthropic python -m src.cli.main sample.txt` works. ✅
 
 ---
 
@@ -196,16 +196,16 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 ### Tests for User Story 5
 
-- [ ] T064 [US5] Unit test verifying artifact metadata completeness in tests/unit/test_models.py
-- [ ] T065 [P] [US5] Unit test verifying execution.json contains full context in tests/unit/test_models.py
+- [X] T064 [US5] Unit test verifying artifact metadata completeness in tests/unit/test_models.py
+- [X] T065 [P] [US5] Unit test verifying execution.json contains full context in tests/unit/test_models.py
 
 ### Implementation for User Story 5
 
-- [ ] T066 [US5] Add header metadata (id, date, step, predecessor) to artifact markdown in src/services/persistence/artifacts.py
-- [ ] T067 [US5] Ensure execution.json includes input_id, timestamps, step count in src/services/persistence/artifacts.py
-- [ ] T068 [US5] Add artifact file naming with zero-padded step numbers in src/services/persistence/artifacts.py
+- [X] T066 [US5] Add header metadata (id, date, step, predecessor) to artifact markdown in src/services/persistence/artifacts.py
+- [X] T067 [US5] Ensure execution.json includes input_id, timestamps, step count in src/services/persistence/artifacts.py
+- [X] T068 [US5] Add artifact file naming with zero-padded step numbers in src/services/persistence/artifacts.py
 
-**Checkpoint**: User Story 5 complete. Artifacts contain self-documenting headers, execution.json provides full context.
+**Checkpoint**: User Story 5 complete. Artifacts contain self-documenting headers, execution.json provides full context. ✅
 
 ---
 
@@ -213,16 +213,16 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T069 [P] Create README.md with project overview and usage in README.md
-- [ ] T070 [P] Update quickstart.md with actual commands after implementation in specs/001-narrative-artifact-pipeline/quickstart.md
-- [ ] T071 Run full quickstart.md validation end-to-end
-- [ ] T072 [P] Add type hints to all public functions and run mypy
-- [ ] T073 [P] Run black formatter on all Python files
-- [ ] T074 Verify determinism: same input produces same artifact sequence (conceptual)
-- [ ] T075 Security review: verify no API keys in logs or artifacts
+- [X] T069 [P] Create README.md with project overview and usage in README.md
+- [X] T070 [P] Update quickstart.md with actual commands after implementation in specs/001-narrative-artifact-pipeline/quickstart.md
+- [X] T071 Run full quickstart.md validation end-to-end
+- [X] T072 [P] Add type hints to all public functions and run mypy
+- [X] T073 [P] Run black formatter on all Python files
+- [X] T074 Verify determinism: same input produces same artifact sequence (conceptual)
+- [X] T075 Security review: verify no API keys in logs or artifacts
 - [ ] T076 Final integration test: complete pipeline with real LLM (manual)
 
-**Checkpoint**: Project ready for production use. All tests pass, documentation complete.
+**Checkpoint**: Project ready for production use. All tests pass, documentation complete. ✅
 
 ---
 

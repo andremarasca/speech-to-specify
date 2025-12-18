@@ -10,26 +10,25 @@ from src.lib.timestamps import generate_id, generate_timestamp
 class Artifact(BaseModel):
     """
     Documento gerado por uma etapa de transformação na cadeia narrativa.
-    
+
     Immutable after creation. Each artifact belongs to an execution and
     references its predecessor (except for step 1).
     """
-    
+
     id: str = Field(default_factory=generate_id, description="Unique identifier (UUID)")
     execution_id: str = Field(..., description="Reference to parent execution")
     step_number: int = Field(..., ge=1, description="Step number in the chain (1-indexed)")
     step_name: str = Field(..., description="Semantic step name (e.g., 'constitution')")
     predecessor_id: str | None = Field(
-        default=None, 
-        description="ID of predecessor artifact (null for step 1)"
+        default=None, description="ID of predecessor artifact (null for step 1)"
     )
     content: str = Field(..., description="Generated structured content")
     created_at: datetime = Field(default_factory=generate_timestamp, description="UTC timestamp")
-    
+
     model_config = {
         "frozen": True,  # Immutable after creation
     }
-    
+
     @field_validator("step_name")
     @classmethod
     def step_name_valid(cls, v: str) -> str:
@@ -37,21 +36,23 @@ class Artifact(BaseModel):
         valid_steps = {"constitution", "specification", "planning"}
         if v not in valid_steps:
             from src.lib.exceptions import ValidationError
+
             raise ValidationError(
                 f"Invalid step_name '{v}'. Must be one of: {', '.join(valid_steps)}",
-                field="step_name"
+                field="step_name",
             )
         return v
-    
+
     @field_validator("content")
     @classmethod
     def content_not_empty(cls, v: str) -> str:
         """Validate that content is not empty."""
         if not v or not v.strip():
             from src.lib.exceptions import ValidationError
+
             raise ValidationError("Artifact content cannot be empty", field="content")
         return v
-    
+
     def get_filename(self) -> str:
         """Generate the filename for this artifact."""
         return f"{self.step_number:02d}_{self.step_name}.md"
