@@ -1,0 +1,13 @@
+Então, a ideia é fazer um sistema que organize notas bagunçadas.
+
+Tipo, você tem um monte de texto caótico, ideias soltas, e quer 
+transformar isso em documentos estruturados. Primeiro extrai os 
+princípios fundamentais, depois especifica o que precisa ser feito,
+e por fim cria um plano de implementação.
+
+O sistema tem que ser determinístico - mesma entrada, mesma saída.
+Tudo precisa ser registrado para auditoria. E tem que funcionar
+com diferentes provedores de IA sem precisar reescrever código.
+
+Se falhar no meio do caminho, não pode perder o que já foi feito.
+Cada artefato gerado precisa ser salvo imediatamente.

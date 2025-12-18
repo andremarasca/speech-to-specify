@@ -29,14 +29,14 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 **Purpose**: Establish stable project skeleton with semantic folder structure
 
-- [ ] T001 Create project directory structure per plan.md in src/, tests/, prompts/
-- [ ] T002 [P] Initialize Python project with pyproject.toml and requirements.txt
-- [ ] T003 [P] Create requirements-dev.txt with pytest, pytest-cov, black, mypy
-- [ ] T004 [P] Configure .gitignore for Python project (venv, __pycache__, .env, output/)
-- [ ] T005 [P] Create empty __init__.py files in all src/ and tests/ directories
-- [ ] T006 [P] Create .env.example with documented environment variables template
+- [X] T001 Create project directory structure per plan.md in src/, tests/, prompts/
+- [X] T002 [P] Initialize Python project with pyproject.toml and requirements.txt
+- [X] T003 [P] Create requirements-dev.txt with pytest, pytest-cov, black, mypy
+- [X] T004 [P] Configure .gitignore for Python project (venv, __pycache__, .env, output/)
+- [X] T005 [P] Create empty __init__.py files in all src/ and tests/ directories
+- [X] T006 [P] Create .env.example with documented environment variables template
 
-**Checkpoint**: Project structure complete, `pip install -r requirements.txt` works
+**Checkpoint**: Project structure complete, `pip install -r requirements.txt` works ✅
 
 ---
 
@@ -48,45 +48,45 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 ### 2.1 Configuration & Utilities
 
-- [ ] T007 Create Settings class with pydantic-settings in src/lib/config.py
-- [ ] T008 [P] Create timestamp utilities (generate_id, generate_timestamp) in src/lib/timestamps.py
-- [ ] T009 [P] Create exception hierarchy (NarrativeError, LLMError, ValidationError, PersistenceError) in src/lib/exceptions.py
-- [ ] T010 Unit test for config validation in tests/unit/test_config.py
+- [X] T007 Create Settings class with pydantic-settings in src/lib/config.py
+- [X] T008 [P] Create timestamp utilities (generate_id, generate_timestamp) in src/lib/timestamps.py
+- [X] T009 [P] Create exception hierarchy (NarrativeError, LLMError, ValidationError, PersistenceError) in src/lib/exceptions.py
+- [X] T010 Unit test for config validation in tests/unit/test_config.py
 
 ### 2.2 Domain Models (All Entities)
 
-- [ ] T011 [P] Create Input model with validation rules in src/models/input.py
-- [ ] T012 [P] Create Artifact model with validation rules in src/models/artifact.py
-- [ ] T013 [P] Create Execution model with status enum and transitions in src/models/execution.py
-- [ ] T014 [P] Create LLMLog and FailureLog models in src/models/logs.py
-- [ ] T015 [P] Create src/models/__init__.py exporting all models
-- [ ] T016 Unit tests for all models in tests/unit/test_models.py
+- [X] T011 [P] Create Input model with validation rules in src/models/input.py
+- [X] T012 [P] Create Artifact model with validation rules in src/models/artifact.py
+- [X] T013 [P] Create Execution model with status enum and transitions in src/models/execution.py
+- [X] T014 [P] Create LLMLog and FailureLog models in src/models/logs.py
+- [X] T015 [P] Create src/models/__init__.py exporting all models
+- [X] T016 Unit tests for all models in tests/unit/test_models.py
 
 ### 2.3 LLM Provider Abstraction (Contract Only)
 
-- [ ] T017 Create LLMProvider Protocol and LLMError in src/services/llm/base.py
-- [ ] T018 Create MockProvider for testing in src/services/llm/mock.py
-- [ ] T019 [P] Create provider registry (get_provider function) in src/services/llm/__init__.py
-- [ ] T020 Contract test verifying Protocol compliance in tests/contract/test_llm_provider.py
+- [X] T017 Create LLMProvider Protocol and LLMError in src/services/llm/base.py
+- [X] T018 Create MockProvider for testing in src/services/llm/mock.py
+- [X] T019 [P] Create provider registry (get_provider function) in src/services/llm/__init__.py
+- [X] T020 Contract test verifying Protocol compliance in tests/contract/test_llm_provider.py
 
 ### 2.4 Persistence Abstraction (Contract + Filesystem Implementation)
 
-- [ ] T021 Create ArtifactStore Protocol in src/services/persistence/base.py
-- [ ] T022 Create LogStore Protocol in src/services/persistence/base.py
-- [ ] T023 Implement FileArtifactStore in src/services/persistence/artifacts.py
-- [ ] T024 Implement FileLogStore in src/services/persistence/logs.py
-- [ ] T025 [P] Create persistence factory in src/services/persistence/__init__.py
-- [ ] T026 Contract test for ArtifactStore in tests/contract/test_persistence.py
-- [ ] T027 [P] Contract test for LogStore in tests/contract/test_persistence.py
+- [X] T021 Create ArtifactStore Protocol in src/services/persistence/base.py
+- [X] T022 Create LogStore Protocol in src/services/persistence/base.py
+- [X] T023 Implement FileArtifactStore in src/services/persistence/artifacts.py
+- [X] T024 Implement FileLogStore in src/services/persistence/logs.py
+- [X] T025 [P] Create persistence factory in src/services/persistence/__init__.py
+- [X] T026 Contract test for ArtifactStore in tests/contract/test_persistence.py
+- [X] T027 [P] Contract test for LogStore in tests/contract/test_persistence.py
 
 ### 2.5 Prompt Templates
 
-- [ ] T028 [P] Create constitution.md prompt template in prompts/constitution.md
-- [ ] T029 [P] Create specification.md prompt template in prompts/specification.md
-- [ ] T030 [P] Create planning.md prompt template in prompts/planning.md
-- [ ] T031 Create PromptLoader utility to load and render templates in src/lib/prompts.py
+- [X] T028 [P] Create constitution.md prompt template in prompts/constitution.md
+- [X] T029 [P] Create specification.md prompt template in prompts/specification.md
+- [X] T030 [P] Create planning.md prompt template in prompts/planning.md
+- [X] T031 Create PromptLoader utility to load and render templates in src/lib/prompts.py
 
-**Checkpoint**: Foundation ready - models, contracts, persistence work with mock data. `pytest tests/unit tests/contract` passes.
+**Checkpoint**: Foundation ready - models, contracts, persistence work with mock data. `pytest tests/unit tests/contract` passes. ✅
 
 ---
 
@@ -100,21 +100,21 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 > **NOTE**: Write tests FIRST, ensure they FAIL before implementation
 
-- [ ] T032 [US1] Integration test for complete pipeline execution in tests/integration/test_orchestrator.py
-- [ ] T033 [P] [US1] Unit test for step sequence validation in tests/unit/test_orchestrator.py
+- [X] T032 [US1] Integration test for complete pipeline execution in tests/integration/test_orchestrator.py
+- [X] T033 [P] [US1] Unit test for step sequence validation in tests/unit/test_orchestrator.py
 
 ### Implementation for User Story 1
 
-- [ ] T034 [US1] Create PipelineStep dataclass defining step contract in src/services/orchestrator.py
-- [ ] T035 [US1] Create NarrativePipeline class with fixed step sequence in src/services/orchestrator.py
-- [ ] T036 [US1] Implement execute() method that runs all steps sequentially in src/services/orchestrator.py
-- [ ] T037 [US1] Implement step execution with artifact creation and persistence in src/services/orchestrator.py
-- [ ] T038 [US1] Add Input validation (reject empty/whitespace) in src/services/orchestrator.py
-- [ ] T039 [US1] Create CLI entry point with argparse in src/cli/main.py
-- [ ] T040 [US1] Implement narrate command reading file and invoking pipeline in src/cli/main.py
-- [ ] T041 [US1] Add stdout progress output per CLI contract in src/cli/main.py
+- [X] T034 [US1] Create PipelineStep dataclass defining step contract in src/services/orchestrator.py
+- [X] T035 [US1] Create NarrativePipeline class with fixed step sequence in src/services/orchestrator.py
+- [X] T036 [US1] Implement execute() method that runs all steps sequentially in src/services/orchestrator.py
+- [X] T037 [US1] Implement step execution with artifact creation and persistence in src/services/orchestrator.py
+- [X] T038 [US1] Add Input validation (reject empty/whitespace) in src/services/orchestrator.py
+- [X] T039 [US1] Create CLI entry point with argparse in src/cli/main.py
+- [X] T040 [US1] Implement narrate command reading file and invoking pipeline in src/cli/main.py
+- [X] T041 [US1] Add stdout progress output per CLI contract in src/cli/main.py
 
-**Checkpoint**: User Story 1 complete. `python -m src.cli.main sample.txt` produces 3 artifacts in output/.
+**Checkpoint**: User Story 1 complete. `python -m src.cli.main sample.txt` produces 3 artifacts in output/. ✅
 
 ---
 
@@ -126,17 +126,17 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 ### Tests for User Story 2
 
-- [ ] T042 [US2] Integration test verifying all LLM calls logged in tests/integration/test_logging.py
-- [ ] T043 [P] [US2] Unit test for LLMLog creation with timestamps in tests/unit/test_logs.py
+- [X] T042 [US2] Integration test verifying all LLM calls logged in tests/integration/test_logging.py
+- [X] T043 [P] [US2] Unit test for LLMLog creation with timestamps in tests/unit/test_logs.py
 
 ### Implementation for User Story 2
 
-- [ ] T044 [US2] Add pre-call logging (prompt + timestamp) to orchestrator in src/services/orchestrator.py
-- [ ] T045 [US2] Add post-call logging (response + timestamp + latency) to orchestrator in src/services/orchestrator.py
-- [ ] T046 [US2] Integrate LogStore.append_llm_log in pipeline execution in src/services/orchestrator.py
-- [ ] T047 [US2] Add --verbose flag showing LLM interaction details in src/cli/main.py
+- [X] T044 [US2] Add pre-call logging (prompt + timestamp) to orchestrator in src/services/orchestrator.py
+- [X] T045 [US2] Add post-call logging (response + timestamp + latency) to orchestrator in src/services/orchestrator.py
+- [X] T046 [US2] Integrate LogStore.append_llm_log in pipeline execution in src/services/orchestrator.py
+- [X] T047 [US2] Add --verbose flag showing LLM interaction details in src/cli/main.py
 
-**Checkpoint**: User Story 2 complete. Every LLM call produces entry in llm_traffic.jsonl with timestamps.
+**Checkpoint**: User Story 2 complete. Every LLM call produces entry in llm_traffic.jsonl with timestamps. ✅
 
 ---
 
@@ -148,19 +148,19 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 
 ### Tests for User Story 3
 
-- [ ] T048 [US3] Integration test for partial failure preservation in tests/integration/test_failure_recovery.py
-- [ ] T049 [P] [US3] Unit test for FailureLog creation in tests/unit/test_logs.py
+- [X] T048 [US3] Integration test for partial failure preservation in tests/integration/test_failure_recovery.py
+- [X] T049 [P] [US3] Unit test for FailureLog creation in tests/unit/test_logs.py
 
 ### Implementation for User Story 3
 
-- [ ] T050 [US3] Add try/except per step with partial state preservation in src/services/orchestrator.py
-- [ ] T051 [US3] Implement FailureLog creation on exception in src/services/orchestrator.py
-- [ ] T052 [US3] Ensure artifact persistence happens BEFORE next step starts in src/services/orchestrator.py
-- [ ] T053 [US3] Update Execution status to 'failed' with error_message on failure in src/services/orchestrator.py
-- [ ] T054 [US3] Add explicit error output to stderr per CLI contract in src/cli/main.py
-- [ ] T055 [US3] Implement exit codes per contract (3=validation, 4=LLM, 5=internal) in src/cli/main.py
+- [X] T050 [US3] Add try/except per step with partial state preservation in src/services/orchestrator.py
+- [X] T051 [US3] Implement FailureLog creation on exception in src/services/orchestrator.py
+- [X] T052 [US3] Ensure artifact persistence happens BEFORE next step starts in src/services/orchestrator.py
+- [X] T053 [US3] Update Execution status to 'failed' with error_message on failure in src/services/orchestrator.py
+- [X] T054 [US3] Add explicit error output to stderr per CLI contract in src/cli/main.py
+- [X] T055 [US3] Implement exit codes per contract (3=validation, 4=LLM, 5=internal) in src/cli/main.py
 
-**Checkpoint**: User Story 3 complete. Failures produce failure.json, preserve partial artifacts, exit with correct code.
+**Checkpoint**: User Story 3 complete. Failures produce failure.json, preserve partial artifacts, exit with correct code. ✅
 
 ---
 
