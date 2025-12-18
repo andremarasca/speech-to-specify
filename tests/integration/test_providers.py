@@ -23,35 +23,25 @@ class TestProviderSwitchingViaConfig:
 
     def test_openai_provider_via_config_without_key_raises(self):
         """Test that OpenAI provider without API key raises ConfigError."""
-        with patch.dict(os.environ, {"NARRATE_PROVIDER": "openai"}, clear=True):
-            # Clear the API key
-            env = os.environ.copy()
-            env.pop("OPENAI_API_KEY", None)
+        # Create settings with explicitly None API key
+        settings = Settings(openai_api_key=None)
 
-            with patch.dict(os.environ, env, clear=True):
-                settings = Settings()
+        # Should raise ConfigError when validating
+        with pytest.raises(ConfigError) as exc_info:
+            settings.validate_provider_config("openai")
 
-                # Should raise ConfigError when validating
-                with pytest.raises(ConfigError) as exc_info:
-                    settings.validate_provider_config("openai")
-
-                assert "OPENAI_API_KEY" in str(exc_info.value)
+        assert "OPENAI_API_KEY" in str(exc_info.value)
 
     def test_anthropic_provider_via_config_without_key_raises(self):
         """Test that Anthropic provider without API key raises ConfigError."""
-        with patch.dict(os.environ, {"NARRATE_PROVIDER": "anthropic"}, clear=True):
-            # Clear the API key
-            env = os.environ.copy()
-            env.pop("ANTHROPIC_API_KEY", None)
+        # Create settings with explicitly None API key
+        settings = Settings(anthropic_api_key=None)
 
-            with patch.dict(os.environ, env, clear=True):
-                settings = Settings()
+        # Should raise ConfigError when validating
+        with pytest.raises(ConfigError) as exc_info:
+            settings.validate_provider_config("anthropic")
 
-                # Should raise ConfigError when validating
-                with pytest.raises(ConfigError) as exc_info:
-                    settings.validate_provider_config("anthropic")
-
-                assert "ANTHROPIC_API_KEY" in str(exc_info.value)
+        assert "ANTHROPIC_API_KEY" in str(exc_info.value)
 
     def test_provider_from_registry(self):
         """Test all registered providers can be instantiated."""

@@ -58,10 +58,9 @@ class TestSettings:
 
     def test_validate_provider_config_missing_key(self, monkeypatch):
         """Test validation fails when API key is missing."""
-        # Ensure no API key is set
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-        settings = Settings()
+        # Create settings with explicitly None API key
+        # (bypassing env file loading by setting directly)
+        settings = Settings(openai_api_key=None, anthropic_api_key=None)
 
         with pytest.raises(ConfigError) as exc_info:
             settings.validate_provider_config("openai")

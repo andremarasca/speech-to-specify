@@ -220,7 +220,7 @@ description: "Task list for Constituidor de Artefatos Narrativos implementation"
 - [X] T073 [P] Run black formatter on all Python files
 - [X] T074 Verify determinism: same input produces same artifact sequence (conceptual)
 - [X] T075 Security review: verify no API keys in logs or artifacts
-- [ ] T076 Final integration test: complete pipeline with real LLM (manual)
+- [X] T076 Final integration test: complete pipeline with real LLM (manual)
 
 **Checkpoint**: Project ready for production use. All tests pass, documentation complete. ✅
 
