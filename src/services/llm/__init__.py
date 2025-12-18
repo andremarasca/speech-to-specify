@@ -4,11 +4,13 @@ from src.services.llm.base import LLMProvider, LLMError
 from src.services.llm.mock import MockProvider
 from src.services.llm.openai import OpenAIProvider
 from src.services.llm.anthropic import AnthropicProvider
+from src.services.llm.deepseek import DeepSeekProvider
 
 _PROVIDERS: dict[str, type] = {
     "mock": MockProvider,
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
+    "deepseek": DeepSeekProvider,
 }
 
 
