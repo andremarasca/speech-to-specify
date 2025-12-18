@@ -45,6 +45,7 @@ class NarrativePipeline:
         PipelineStep(number=1, name="constitution", prompt_template="constitution"),
         PipelineStep(number=2, name="specification", prompt_template="specification"),
         PipelineStep(number=3, name="planning", prompt_template="planning"),
+        PipelineStep(number=4, name="tasks", prompt_template="tasks"),
     ]
 
     def __init__(
@@ -188,6 +189,9 @@ class NarrativePipeline:
 
         if step.number >= 3 and 2 in self._artifacts:
             variables["specification_content"] = self._artifacts[2].content
+
+        if step.number >= 4 and 3 in self._artifacts:
+            variables["planning_content"] = self._artifacts[3].content
 
         return load_prompt(step.prompt_template, **variables)
 

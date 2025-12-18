@@ -111,7 +111,7 @@ class TestExecution:
 
         assert execution.status == ExecutionStatus.IN_PROGRESS
         assert execution.current_step == 1
-        assert execution.total_steps == 3
+        assert execution.total_steps == 4
         assert execution.completed_at is None
         assert execution.error_message is None
 
@@ -126,9 +126,9 @@ class TestExecution:
 
     def test_mark_final_step_complete(self):
         """Test marking the final step as complete."""
-        execution = Execution(input_id="input-123", current_step=3)
+        execution = Execution(input_id="input-123", current_step=4)
 
-        updated = execution.mark_step_complete(3)
+        updated = execution.mark_step_complete(4)
 
         assert updated.status == ExecutionStatus.COMPLETED
         assert updated.completed_at is not None
@@ -152,7 +152,7 @@ class TestExecution:
     def test_status_properties(self):
         """Test status helper properties."""
         running = Execution(input_id="input-123")
-        completed = running.mark_step_complete(3)
+        completed = running.mark_step_complete(4)
         failed = running.mark_failed("error")
 
         assert running.is_running is True
@@ -312,7 +312,7 @@ class TestExecutionMetadataCompleteness:
 
         assert execution.started_at is not None
 
-        completed = execution.mark_step_complete(3)
+        completed = execution.mark_step_complete(4)
 
         assert completed.completed_at is not None
 
@@ -320,13 +320,13 @@ class TestExecutionMetadataCompleteness:
         """Test that execution has total_steps."""
         execution = Execution(input_id="input-123")
 
-        assert execution.total_steps == 3
+        assert execution.total_steps == 4
         assert execution.current_step == 1
 
     def test_execution_serialization_preserves_metadata(self):
         """Test that execution can be serialized with all metadata."""
         execution = Execution(input_id="input-123")
-        completed = execution.mark_step_complete(3)
+        completed = execution.mark_step_complete(4)
 
         data = completed.model_dump()
 

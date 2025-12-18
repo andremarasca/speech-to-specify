@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.lib.timestamps import generate_id, generate_timestamp
+from src.lib.timestamps import generate_uuid, generate_timestamp
 
 
 class LLMLog(BaseModel):
@@ -15,7 +15,7 @@ class LLMLog(BaseModel):
     cycle for audit and debugging purposes.
     """
 
-    id: str = Field(default_factory=generate_id, description="Unique identifier (UUID)")
+    id: str = Field(default_factory=generate_uuid, description="Unique identifier (UUID)")
     execution_id: str = Field(..., description="Reference to the execution")
     step_number: int = Field(..., ge=1, description="Step that generated this interaction")
     provider: str = Field(..., description="Provider name (e.g., 'openai', 'anthropic')")
@@ -87,7 +87,7 @@ class FailureLog(BaseModel):
     debugging and recovery.
     """
 
-    id: str = Field(default_factory=generate_id, description="Unique identifier (UUID)")
+    id: str = Field(default_factory=generate_uuid, description="Unique identifier (UUID)")
     execution_id: str = Field(..., description="Reference to the failed execution")
     failed_step: int = Field(..., ge=1, description="Step where failure occurred")
     error_type: str = Field(..., description="Exception class name")

@@ -32,7 +32,7 @@ class Execution(BaseModel):
     started_at: datetime = Field(default_factory=generate_timestamp, description="Start timestamp")
     completed_at: datetime | None = Field(default=None, description="Completion timestamp")
     current_step: int | None = Field(default=1, description="Current step being processed")
-    total_steps: int = Field(default=3, ge=1, description="Total steps in the chain")
+    total_steps: int = Field(default=4, ge=1, description="Total steps in the chain")
     error_message: str | None = Field(default=None, description="Error message if failed")
 
     model_config = {

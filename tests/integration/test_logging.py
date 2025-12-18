@@ -39,7 +39,7 @@ class TestLLMLogging:
 
         # Count log entries (one per line in JSONL)
         lines = [l for l in llm_log_path.read_text().strip().split("\n") if l]
-        assert len(lines) == 3  # One per step
+        assert len(lines) == 4  # One per step
 
     def test_log_contains_prompt_and_response(
         self, pipeline, sample_input_content, temp_output_dir
@@ -110,7 +110,7 @@ class TestLLMLogging:
             log_entry = json.loads(line)
             step_numbers.append(log_entry["step_number"])
 
-        assert step_numbers == [1, 2, 3]
+        assert step_numbers == [1, 2, 3, 4]
 
     def test_log_entries_have_unique_ids(self, pipeline, sample_input_content, temp_output_dir):
         """Test that each log entry has a unique ID."""
@@ -138,5 +138,5 @@ class TestLLMLogging:
         log_store = create_log_store(temp_output_dir)
         logs = log_store.load_llm_logs(execution.id)
 
-        assert len(logs) == 3
+        assert len(logs) == 4
         assert all(log.execution_id == execution.id for log in logs)

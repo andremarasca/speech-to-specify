@@ -31,13 +31,13 @@ A primeira seção, Preparação e Alicerce, apresenta a estratégia de iniciali
 ## Dados de Entrada
 
 **Plano Descritivo:**
-{{PLANO_DESCRITIVO}}
+{{ planning_content }}
 
 **Especificação Narrativa:**
-{{ESPECIFICACAO_NARRATIVA}}
+{{ specification_content }}
 
 **Constituição do Projeto:**
-{{CONSTITUICAO_PROJETO}}
+{{ constitution_content }}
 
 **Transcrição do Brainstorm:**
-{{TRANSCRICAO_BRAINSTORM}}
+{{ input_content }}

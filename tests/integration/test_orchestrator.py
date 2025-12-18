@@ -41,13 +41,14 @@ class TestNarrativePipeline:
         assert artifacts_dir.exists()
 
         artifact_files = list(artifacts_dir.glob("*.md"))
-        assert len(artifact_files) == 3
+        assert len(artifact_files) == 4
 
         # Check file names match expected steps
         filenames = [f.name for f in artifact_files]
         assert "01_constitution.md" in filenames
         assert "02_specification.md" in filenames
         assert "03_planning.md" in filenames
+        assert "04_tasks.md" in filenames
 
     def test_artifacts_have_content(self, pipeline, sample_input_content, temp_output_dir):
         """Test that generated artifacts have meaningful content."""
@@ -101,7 +102,7 @@ class TestNarrativePipeline:
 
         execution = pipeline.execute(input_data)
 
-        assert execution.total_steps == 3
+        assert execution.total_steps == 4
 
     def test_artifacts_form_chain(self, pipeline, sample_input_content, temp_output_dir):
         """Test that artifacts reference their predecessors."""
@@ -113,10 +114,11 @@ class TestNarrativePipeline:
         artifact_store = pipeline._artifact_store
         artifacts = artifact_store.list_artifacts(pipeline._current_execution.id)
 
-        assert len(artifacts) == 3
+        assert len(artifacts) == 4
         assert artifacts[0].predecessor_id is None  # First has no predecessor
         assert artifacts[1].predecessor_id == artifacts[0].id
         assert artifacts[2].predecessor_id == artifacts[1].id
+        assert artifacts[3].predecessor_id == artifacts[2].id
 
 
 class TestPipelineStepSequence:
@@ -126,10 +128,11 @@ class TestPipelineStepSequence:
         """Test that pipeline has fixed step sequence."""
         steps = NarrativePipeline.STEPS
 
-        assert len(steps) == 3
+        assert len(steps) == 4
         assert steps[0].name == "constitution"
         assert steps[1].name == "specification"
         assert steps[2].name == "planning"
+        assert steps[3].name == "tasks"
 
     def test_step_numbers_are_sequential(self):
         """Test that step numbers are 1, 2, 3."""

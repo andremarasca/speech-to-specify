@@ -58,8 +58,8 @@ class TestStepSequenceValidation:
         assert steps[0].name == "constitution"
         assert steps[0].number == 1
 
-    def test_planning_is_last(self):
-        """Test that planning is the last step."""
+    def test_tasks_is_last(self):
+        """Test that tasks is the last step."""
         steps = NarrativePipeline.STEPS
 
-        assert steps[-1].name == "planning"
+        assert steps[-1].name == "tasks"
