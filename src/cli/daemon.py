@@ -358,18 +358,33 @@ class VoiceOrchestrator:
 
     async def _cmd_transcripts(self, event: TelegramEvent) -> None:
         """Handle /transcripts command - retrieve transcriptions."""
-        # Find most recent TRANSCRIBED or later session
-        sessions = self.session_manager.list_sessions(limit=10)
+        # Check if a specific session ID was provided
+        specified_session_id = event.payload.get("args")
+
         target_session = None
 
-        for s in sessions:
-            if s.state in (
-                SessionState.TRANSCRIBED,
-                SessionState.PROCESSING,
-                SessionState.PROCESSED,
-            ):
-                target_session = s
-                break
+        if specified_session_id:
+            # Try to get the specific session
+            target_session = self.session_manager.get_session(specified_session_id)
+            if not target_session:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Session `{specified_session_id}` not found.",
+                    parse_mode="Markdown",
+                )
+                return
+        else:
+            # Find most recent TRANSCRIBED or later session
+            sessions = self.session_manager.list_sessions(limit=10)
+
+            for s in sessions:
+                if s.state in (
+                    SessionState.TRANSCRIBED,
+                    SessionState.PROCESSING,
+                    SessionState.PROCESSED,
+                ):
+                    target_session = s
+                    break
 
         if not target_session:
             await self.bot.send_message(
@@ -430,14 +445,37 @@ class VoiceOrchestrator:
             )
             return
 
-        # Find most recent TRANSCRIBED session
-        sessions = self.session_manager.list_sessions(limit=10)
+        # Check if a specific session ID was provided
+        specified_session_id = event.payload.get("args")
+
         target_session = None
 
-        for s in sessions:
-            if s.state == SessionState.TRANSCRIBED:
-                target_session = s
-                break
+        if specified_session_id:
+            # Try to get the specific session
+            target_session = self.session_manager.get_session(specified_session_id)
+            if not target_session:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Session `{specified_session_id}` not found.",
+                    parse_mode="Markdown",
+                )
+                return
+            if target_session.state != SessionState.TRANSCRIBED:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Session `{specified_session_id}` is in state `{target_session.state.value}`.\n\n"
+                    f"Only TRANSCRIBED sessions can be processed.",
+                    parse_mode="Markdown",
+                )
+                return
+        else:
+            # Find most recent TRANSCRIBED session
+            sessions = self.session_manager.list_sessions(limit=10)
+
+            for s in sessions:
+                if s.state == SessionState.TRANSCRIBED:
+                    target_session = s
+                    break
 
         if not target_session:
             await self.bot.send_message(
@@ -465,7 +503,7 @@ class VoiceOrchestrator:
 
             # List outputs
             outputs = self.downstream_processor.list_outputs(target_session)
-            output_names = [p.name for p in outputs[:10]]  # Limit to first 10
+            output_names = [p.name.replace("_", "\\_") for p in outputs[:10]]  # Escape underscores
 
             # Transition to PROCESSED state
             self.session_manager.transition_state(target_session.id, SessionState.PROCESSED)
@@ -476,7 +514,7 @@ class VoiceOrchestrator:
                 f"🆔 Session: `{target_session.id}`\n"
                 f"📁 Status: PROCESSED\n"
                 f"📄 Outputs: {len(outputs)} files\n\n"
-                f"*Generated files:*\n" + "\n".join(f"• {name}" for name in output_names) + "\n\n"
+                f"*Generated files:*\n" + "\n".join(f"• `{name}`" for name in output_names) + "\n\n"
                 f"Use /list to see all files, /get <file> to download.",
                 parse_mode="Markdown",
             )
