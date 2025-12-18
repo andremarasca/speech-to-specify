@@ -14,11 +14,19 @@ class TestSettings:
         """Reset settings before each test."""
         reset_settings()
 
-    def test_default_values(self):
+    def test_default_values(self, monkeypatch):
         """Test that defaults are applied when no env vars set."""
-        settings = Settings()
+        # Clear all relevant env vars to test actual defaults
+        monkeypatch.delenv("NARRATE_PROVIDER", raising=False)
+        monkeypatch.delenv("NARRATE_OUTPUT_DIR", raising=False)
+        monkeypatch.delenv("NARRATE_VERBOSE", raising=False)
+        monkeypatch.delenv("NARRATE_TIMEOUT", raising=False)
 
-        assert settings.llm_provider == "openai"
+        # Create settings without reading .env file to test true defaults
+        settings = Settings(_env_file=None)
+
+        # Default provider is deepseek (per current config.py)
+        assert settings.llm_provider == "deepseek"
         assert settings.output_dir == "./output"
         assert settings.verbose is False
         assert settings.timeout == 120

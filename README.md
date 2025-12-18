@@ -175,3 +175,122 @@ prompts/           # LLM prompt templates
 ## License
 
 See [LICENSE](LICENSE) for details.
+
+---
+
+# Telegram Voice Orchestrator (OATL)
+
+Remote voice-to-text orchestration via Telegram with 100% local processing.
+
+## Overview
+
+The Voice Orchestrator allows you to:
+1. Send voice messages to a Telegram bot from anywhere
+2. Have them automatically transcribed locally using Whisper (GPU-accelerated)
+3. Feed transcripts to the Narrative Artifact Pipeline
+
+**Key Principles:**
+- **Data Sovereignty** - All processing happens locally; Telegram is just a channel
+- **Explicit State** - Session state persisted as JSON for auditability
+- **Immutability** - Sessions are locked after finalization
+
+## Prerequisites
+
+- NVIDIA GPU with CUDA support (recommended: RTX 3050+ with 4GB+ VRAM)
+- Telegram Bot Token (from @BotFather)
+- Your Telegram Chat ID
+
+## Configuration
+
+Add to your `.env` file:
+
+```bash
+# Telegram Configuration
+TELEGRAM_BOT_TOKEN=your-bot-token-here
+TELEGRAM_ALLOWED_CHAT_ID=your-chat-id
+
+# Whisper Configuration
+WHISPER_MODEL=small.en  # Options: tiny, base, small, small.en, medium, large
+WHISPER_DEVICE=cuda     # cuda or cpu
+WHISPER_FP16=true       # Use FP16 for faster GPU inference
+
+# Sessions Directory
+SESSIONS_DIR=./sessions
+```
+
+## Running the Daemon
+
+```bash
+# Start the voice orchestrator daemon
+python -m src.cli.daemon
+
+# With verbose logging
+python -m src.cli.daemon --verbose
+```
+
+## Telegram Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Start new voice capture session |
+| `/done` or `/finish` | Finalize session and begin transcription |
+| `/status` | Show current session status |
+| `/transcripts` | Retrieve transcription text |
+| `/process` | Send transcripts to narrative pipeline |
+| `/list` | List session files |
+| `/get <file>` | Download specific file |
+| `/help` | Show available commands |
+
+## Typical Workflow
+
+1. **Start a session:**
+   - Send `/start` to the bot
+   - Bot confirms session creation with ID
+
+2. **Record voice notes:**
+   - Send voice messages one at a time
+   - Bot confirms receipt with sequence number
+
+3. **Finalize and transcribe:**
+   - Send `/done` to finalize
+   - Bot transcribes all audio locally using Whisper
+   - Progress updates sent for each file
+
+4. **Review results:**
+   - `/transcripts` - View all transcriptions
+   - `/list` - See session files
+   - `/get transcripts/001_audio.txt` - Download specific file
+
+5. **Process through pipeline (optional):**
+   - `/process` - Run narrative pipeline on transcripts
+   - Bot sends results when complete
+
+## Session Structure
+
+```
+sessions/
+└── {session-id}/           # e.g., 2025-12-18_14-30-00
+    ├── metadata.json       # Session state and audio entries
+    ├── audio/
+    │   ├── 001_audio.ogg
+    │   ├── 002_audio.ogg
+    │   └── ...
+    ├── transcripts/
+    │   ├── 001_audio.txt
+    │   ├── 002_audio.txt
+    │   └── consolidated.txt
+    └── process/
+        ├── input.txt       # Consolidated for pipeline
+        └── output/         # Pipeline artifacts
+```
+
+## Session States
+
+| State | Description |
+|-------|-------------|
+| `COLLECTING` | Session open, accepting voice messages |
+| `TRANSCRIBING` | Finalized, transcription in progress |
+| `TRANSCRIBED` | All audio transcribed, ready for processing |
+| `PROCESSING` | Downstream pipeline running |
+| `PROCESSED` | All processing complete |
+| `ERROR` | Unrecoverable error occurred |

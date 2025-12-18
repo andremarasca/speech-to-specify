@@ -1,0 +1,6 @@
+# Session data storage
+# This directory contains voice session folders with:
+# - metadata.json (session state)
+# - audio/ (voice message files)
+# - transcripts/ (transcription text files)
+# - process/ (downstream processing outputs)
