@@ -6,6 +6,7 @@ contracts/telegram-bot.md using the python-telegram-bot library.
 The bot handles:
 - Commands: /start, /done, /finish, /status, /transcripts, /process, /list, /get
 - Voice messages: Download and forward to session manager
+- Callback queries: Inline keyboard button presses for UI interactions
 """
 
 import logging
@@ -18,6 +19,7 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -87,6 +89,9 @@ class TelegramBotAdapter:
 
         # Register voice message handler
         self._app.add_handler(MessageHandler(filters.VOICE, self._handle_voice))
+
+        # Register callback query handler for inline keyboard buttons
+        self._app.add_handler(CallbackQueryHandler(self._handle_callback))
 
         # Register unknown command handler
         self._app.add_handler(MessageHandler(filters.COMMAND, self._handle_unknown))
@@ -268,6 +273,47 @@ Send voice messages to record audio during an active session."""
             duration=voice.duration,
             file_size=voice.file_size,
         )
+        await self._dispatch_event(event)
+
+    async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """
+        Handle callback query from inline keyboard button press.
+        
+        Routes callbacks based on their prefix:
+        - action:<name> - Direct actions (finalize, cancel, etc.)
+        - nav:<direction>:<context> - Navigation (pagination)
+        - help:<topic> - Contextual help
+        - confirm:<type>:<response> - Confirmation dialog responses
+        - recover:<action> - Crash recovery actions
+        
+        The event is dispatched to the event handler which routes to
+        appropriate domain handlers.
+        """
+        query = update.callback_query
+        
+        if not query:
+            return
+            
+        # Get chat_id from the callback query message
+        chat_id = query.message.chat_id if query.message else update.effective_chat.id
+        
+        if not self._is_authorized(chat_id):
+            logger.warning(f"Unauthorized callback from chat_id: {chat_id}")
+            await query.answer("⛔ Unauthorized", show_alert=True)
+            return
+        
+        # Always acknowledge the callback to remove loading state
+        await query.answer()
+        
+        # Create normalized callback event
+        event = TelegramEvent.callback(
+            chat_id=chat_id,
+            callback_data=query.data,
+            message_id=query.message.message_id if query.message else None,
+            user_id=query.from_user.id if query.from_user else None,
+        )
+        
+        logger.debug(f"Callback received: {query.data}")
         await self._dispatch_event(event)
 
     # Message sending methods

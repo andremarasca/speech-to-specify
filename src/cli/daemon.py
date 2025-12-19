@@ -18,12 +18,13 @@ import signal
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 from src.lib.config import (
     get_telegram_config,
     get_whisper_config,
     get_session_config,
+    UIConfig,
 )
 from src.lib.timestamps import generate_timestamp
 from src.models.session import AudioEntry, ErrorEntry, MatchType, SessionState, TranscriptionStatus
@@ -31,9 +32,11 @@ from src.services.session.storage import SessionStorage
 from src.services.session.manager import SessionManager, InvalidStateError
 from src.services.telegram.adapter import TelegramEvent
 from src.services.telegram.bot import TelegramBotAdapter
+from src.services.telegram.ui_service import UIService
 from src.services.transcription.base import TranscriptionService
 from src.services.transcription.whisper import WhisperTranscriptionService
 from src.services.session.processor import DownstreamProcessor, ProcessingError
+from src.services.session.checkpoint import save_checkpoint
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -67,6 +70,7 @@ class VoiceOrchestrator:
     - SessionManager: Manages session lifecycle and persistence
     - TranscriptionService: Converts audio to text using local Whisper
     - DownstreamProcessor: Integrates with narrative pipeline
+    - UIService: Handles presentation layer with inline keyboards (005-telegram-ux-overhaul)
     """
 
     def __init__(
@@ -75,11 +79,13 @@ class VoiceOrchestrator:
         session_manager: SessionManager,
         transcription_service: TranscriptionService | None = None,
         downstream_processor: DownstreamProcessor | None = None,
+        ui_service: Optional[UIService] = None,
     ):
         self.bot = bot
         self.session_manager = session_manager
         self.transcription_service = transcription_service
         self.downstream_processor = downstream_processor
+        self.ui_service = ui_service
         self._chat_id: int = 0  # Will be set from config
 
     def set_chat_id(self, chat_id: int) -> None:
@@ -98,6 +104,8 @@ class VoiceOrchestrator:
             await self._handle_command(event)
         elif event.is_voice:
             await self._handle_voice(event)
+        elif event.is_callback:
+            await self._handle_callback(event)
 
     async def _handle_command(self, event: TelegramEvent) -> None:
         """Route command to appropriate handler."""
@@ -119,6 +127,192 @@ class VoiceOrchestrator:
             await handler(event)
         else:
             logger.warning(f"Unknown command: {command}")
+
+    async def _handle_callback(self, event: TelegramEvent) -> None:
+        """
+        Handle callback query from inline keyboard button press.
+        
+        Routes callbacks based on their action type:
+        - action:finalize - Finalize session and start transcription
+        - action:cancel - Cancel current session
+        - action:add_audio - Continue adding audio (no-op, just acknowledge)
+        - help:<topic> - Send contextual help
+        - recover:resume - Resume interrupted session
+        - recover:finalize - Finalize interrupted session
+        - recover:discard - Discard interrupted session
+        - confirm:<type>:<response> - Handle confirmation dialogs
+        """
+        callback_action = event.callback_action
+        callback_value = event.callback_value
+        
+        logger.debug(f"Callback action: {callback_action}, value: {callback_value}")
+        
+        if callback_action == "action":
+            await self._handle_action_callback(event, callback_value)
+        elif callback_action == "help":
+            await self._handle_help_callback(event, callback_value)
+        elif callback_action == "recover":
+            await self._handle_recover_callback(event, callback_value)
+        elif callback_action == "confirm":
+            await self._handle_confirm_callback(event, callback_value)
+        elif callback_action == "nav":
+            await self._handle_nav_callback(event, callback_value)
+        else:
+            logger.warning(f"Unknown callback action: {callback_action}")
+
+    async def _handle_action_callback(self, event: TelegramEvent, action: str) -> None:
+        """Handle action: callbacks."""
+        if action == "finalize":
+            # Same as /done command
+            await self._cmd_finish(event)
+        elif action == "cancel":
+            # Cancel active session without transcription
+            active = self.session_manager.get_active_session()
+            if active:
+                # Mark as error/cancelled state
+                try:
+                    self.session_manager.transition_state(active.id, SessionState.ERROR)
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"❌ Session cancelled: `{active.id}`",
+                        parse_mode="Markdown",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to cancel session: {e}")
+            else:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❌ No active session to cancel.",
+                )
+        elif action == "add_audio":
+            # No-op, just acknowledge - user should send voice messages
+            pass
+        else:
+            logger.warning(f"Unknown action callback: {action}")
+
+    async def _handle_help_callback(self, event: TelegramEvent, topic: str) -> None:
+        """Handle help: callbacks - send contextual help."""
+        if self.ui_service:
+            await self.ui_service.send_contextual_help(
+                chat_id=event.chat_id,
+                topic=topic,
+            )
+        else:
+            # Fallback to basic help
+            await self.bot.send_message(
+                event.chat_id,
+                "❓ Use /help for available commands.",
+            )
+
+    async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
+        """Handle recover: callbacks for crash recovery."""
+        # Find interrupted session
+        sessions = self.session_manager.list_sessions()
+        interrupted = next(
+            (s for s in sessions if s.state == SessionState.INTERRUPTED),
+            None
+        )
+        
+        if not interrupted:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ No interrupted session found.",
+            )
+            return
+        
+        if action == "resume":
+            # Resume session - transition back to COLLECTING
+            try:
+                self.session_manager.transition_state(interrupted.id, SessionState.COLLECTING)
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"✅ Session resumed: `{interrupted.id}`\n"
+                    f"Continue sending voice messages.",
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.error(f"Failed to resume session: {e}")
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Failed to resume session: {e}",
+                )
+        elif action == "finalize":
+            # Finalize interrupted session
+            try:
+                self.session_manager.transition_state(interrupted.id, SessionState.COLLECTING)
+                session = self.session_manager.finalize_session(interrupted.id)
+                await self._run_transcription(event.chat_id, session)
+            except Exception as e:
+                logger.error(f"Failed to finalize interrupted session: {e}")
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Failed to finalize session: {e}",
+                )
+        elif action == "discard":
+            # Discard interrupted session
+            try:
+                self.session_manager.transition_state(interrupted.id, SessionState.ERROR)
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"🗑️ Session discarded: `{interrupted.id}`",
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.error(f"Failed to discard session: {e}")
+        else:
+            logger.warning(f"Unknown recover action: {action}")
+
+    async def _handle_confirm_callback(self, event: TelegramEvent, value: str) -> None:
+        """Handle confirm: callbacks for confirmation dialogs."""
+        # Parse confirm type and response: "session_conflict:finalize_new"
+        parts = value.split(":", 1) if value else []
+        if len(parts) != 2:
+            logger.warning(f"Invalid confirm callback format: {value}")
+            return
+        
+        confirm_type, response = parts
+        
+        if confirm_type == "session_conflict":
+            await self._handle_session_conflict_confirm(event, response)
+        else:
+            logger.warning(f"Unknown confirm type: {confirm_type}")
+
+    async def _handle_session_conflict_confirm(self, event: TelegramEvent, response: str) -> None:
+        """Handle session conflict confirmation response."""
+        active = self.session_manager.get_active_session()
+        
+        if response == "finalize_new":
+            # Finalize current session and start new one
+            if active:
+                try:
+                    session = self.session_manager.finalize_session(active.id)
+                    await self._run_transcription(event.chat_id, session)
+                except Exception as e:
+                    logger.error(f"Failed to finalize during conflict: {e}")
+        elif response == "continue":
+            # Continue with current session
+            if active:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"✅ Continuing session: `{active.id}`\n"
+                    f"Send voice messages.",
+                    parse_mode="Markdown",
+                )
+        elif response == "cancel":
+            # Cancel action, no change
+            await self.bot.send_message(
+                event.chat_id,
+                "Action cancelled.",
+            )
+        else:
+            logger.warning(f"Unknown session conflict response: {response}")
+
+    async def _handle_nav_callback(self, event: TelegramEvent, value: str) -> None:
+        """Handle nav: callbacks for pagination."""
+        # Navigation is typically handled by UIService.send_paginated_text
+        # which would update the message in place
+        logger.debug(f"Navigation callback: {value}")
+        # TODO: Implement pagination state management if needed
 
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
@@ -883,6 +1077,7 @@ class VoiceOrchestrator:
     async def _handle_voice(self, event: TelegramEvent) -> None:
         """Handle voice message - download and add to session (with auto-creation)."""
         from src.lib.exceptions import AudioPersistenceError
+        from src.lib.audio_validation import validate_audio
 
         # First, download the audio from Telegram
         try:
@@ -904,6 +1099,28 @@ class VoiceOrchestrator:
             )
             return
 
+        # T031e: Validate audio for empty/silent content
+        validation_result = validate_audio(
+            audio_data=audio_data,
+            duration_seconds=float(event.duration) if event.duration else None,
+        )
+        
+        if not validation_result.is_valid:
+            logger.warning(f"Audio validation failed: {validation_result.message}")
+            
+            # Send warning but allow user to continue
+            warning_message = (
+                f"⚠️ {validation_result.message}\n\n"
+                "The audio was still saved, but transcription may fail.\n"
+                "Send another voice message or use /done to finalize."
+            )
+            await self.bot.send_message(
+                event.chat_id,
+                warning_message,
+            )
+            # Don't return - continue to save the audio anyway
+            # User can decide whether to keep it
+
         # Use handle_audio_receipt which handles auto-session creation
         try:
             session, audio_entry = self.session_manager.handle_audio_receipt(
@@ -920,26 +1137,57 @@ class VoiceOrchestrator:
             # Check if this was a new session (first audio entry)
             if len(session.audio_entries) == 1:
                 # New session was auto-created
-                session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
-                await self.bot.send_message(
-                    event.chat_id,
-                    f"✅ Session created: *{session_name}*\n\n"
-                    f"Audio #{audio_entry.sequence} received\n"
-                    f"   📁 {escaped_filename}\n"
-                    f"   ⏱️ Duration: {duration_str}\n"
-                    f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
-                    f"Send more audio or /done when finished.",
-                    parse_mode="Markdown",
-                )
+                if self.ui_service:
+                    # Use UIService with inline keyboard (005-telegram-ux-overhaul)
+                    await self.ui_service.send_session_created(
+                        chat_id=event.chat_id,
+                        session=session,
+                        audio_count=1,
+                    )
+                else:
+                    # Fallback to plain text message
+                    session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"✅ Session created: *{session_name}*\n\n"
+                        f"Audio #{audio_entry.sequence} received\n"
+                        f"   📁 {escaped_filename}\n"
+                        f"   ⏱️ Duration: {duration_str}\n"
+                        f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
+                        f"Send more audio or /done when finished.",
+                        parse_mode="Markdown",
+                    )
             else:
                 # Added to existing session
-                await self.bot.send_message(
-                    event.chat_id,
-                    f"✅ Audio #{audio_entry.sequence} received\n"
-                    f"   📁 {escaped_filename}\n"
-                    f"   ⏱️ Duration: {duration_str}\n"
-                    f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
+                if self.ui_service:
+                    # Use UIService with inline keyboard
+                    session_name = session.intelligible_name if session.intelligible_name else session.id
+                    await self.ui_service.send_audio_received(
+                        chat_id=event.chat_id,
+                        audio_number=audio_entry.sequence,
+                        session_name=session_name,
+                    )
+                else:
+                    # Fallback to plain text message  
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"✅ Audio #{audio_entry.sequence} received\n"
+                        f"   📁 {escaped_filename}\n"
+                        f"   ⏱️ Duration: {duration_str}\n"
+                        f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
+                    )
+
+            # Save checkpoint for crash recovery (T031a)
+            try:
+                save_checkpoint(
+                    session=session,
+                    sessions_root=self.session_manager.sessions_dir,
+                    audio_sequence=audio_entry.sequence,
+                    processing_state="COLLECTING",
                 )
+                logger.debug(f"Checkpoint saved after audio #{audio_entry.sequence}")
+            except Exception as e:
+                logger.warning(f"Failed to save checkpoint: {e}")
 
         except AudioPersistenceError as e:
             logger.error(f"Critical: Failed to persist audio: {e}")
@@ -999,6 +1247,79 @@ def validate_configuration() -> bool:
     return True
 
 
+async def _check_orphaned_sessions(
+    session_manager: SessionManager,
+    ui_service: Optional[UIService],
+    chat_id: int,
+) -> None:
+    """
+    Check for orphaned sessions on startup and send recovery prompts.
+    
+    An orphaned session is one that:
+    - Is in COLLECTING or TRANSCRIBING state
+    - Has checkpoint data with age > 1 hour (configurable)
+    
+    Per T031b from 005-telegram-ux-overhaul.
+    
+    Args:
+        session_manager: Session manager to query sessions
+        ui_service: UIService for sending recovery prompts
+        chat_id: Chat ID to send recovery prompt to
+    """
+    from datetime import timedelta
+    from src.services.session.checkpoint import has_checkpoint
+    
+    orphan_threshold = timedelta(hours=1)
+    
+    # Find potentially orphaned sessions
+    sessions = session_manager.list_sessions()
+    orphaned = []
+    
+    for session in sessions:
+        # Check if session is in a recovery-eligible state
+        if session.state in (SessionState.COLLECTING, SessionState.TRANSCRIBING):
+            # Check if it has checkpoint data and is old
+            if has_checkpoint(session):
+                checkpoint = session.checkpoint_data
+                if checkpoint and checkpoint.last_checkpoint_at:
+                    age = datetime.now() - checkpoint.last_checkpoint_at
+                    if age > orphan_threshold:
+                        orphaned.append(session)
+                        logger.info(f"Found orphaned session: {session.id} (age: {age})")
+            elif session.updated_at:
+                # No checkpoint but has updated_at
+                age = datetime.now() - session.updated_at
+                if age > orphan_threshold:
+                    orphaned.append(session)
+                    logger.info(f"Found orphaned session: {session.id} (no checkpoint, age: {age})")
+    
+    if not orphaned:
+        logger.info("No orphaned sessions found")
+        return
+    
+    # For each orphaned session, transition to INTERRUPTED and send recovery prompt
+    for session in orphaned:
+        try:
+            # Transition to INTERRUPTED state
+            session_manager.transition_state(session.id, SessionState.INTERRUPTED)
+            logger.info(f"Marked session {session.id} as INTERRUPTED")
+            
+            # Reload session after state change
+            updated_session = session_manager.storage.load(session.id)
+            
+            # Send recovery prompt
+            if ui_service and updated_session:
+                await ui_service.send_recovery_prompt(
+                    chat_id=chat_id,
+                    session=updated_session,
+                )
+                logger.info(f"Sent recovery prompt for session {session.id}")
+            else:
+                logger.warning(f"Could not send recovery prompt for {session.id} - UIService unavailable")
+        except Exception as e:
+            logger.error(f"Failed to handle orphaned session {session.id}: {e}")
+
+
 async def run_daemon() -> NoReturn:
     """Main daemon loop."""
     logger.info("Starting Telegram Voice Orchestrator daemon...")
@@ -1028,15 +1349,37 @@ async def run_daemon() -> NoReturn:
     # Initialize downstream processor
     downstream_processor = DownstreamProcessor(session_manager)
 
+    # Initialize UIService for inline keyboard support (005-telegram-ux-overhaul)
+    # UIService requires access to bot._app.bot after bot.start()
+    # So we initialize it as None and set it after bot starts
+    ui_service: Optional[UIService] = None
+
     # Create orchestrator and register event handler
     orchestrator = VoiceOrchestrator(
-        bot, session_manager, transcription_service, downstream_processor
+        bot, session_manager, transcription_service, downstream_processor, ui_service
     )
     orchestrator.set_chat_id(telegram_config.allowed_chat_id)
     bot.on_event(orchestrator.handle_event)
 
     # Start the bot
     await bot.start()
+
+    # Now that bot is started, initialize UIService with the telegram Bot instance
+    # This provides inline keyboard support per 005-telegram-ux-overhaul
+    if bot._app and bot._app.bot:
+        ui_service = UIService(bot=bot._app.bot)
+        orchestrator.ui_service = ui_service
+        logger.info("UIService initialized with inline keyboard support")
+    else:
+        logger.warning("Could not initialize UIService - inline keyboards unavailable")
+
+    # Check for orphaned sessions on startup (T031b)
+    # Orphaned sessions are in COLLECTING state but haven't been updated recently
+    await _check_orphaned_sessions(
+        session_manager=session_manager,
+        ui_service=ui_service,
+        chat_id=telegram_config.allowed_chat_id,
+    )
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
 

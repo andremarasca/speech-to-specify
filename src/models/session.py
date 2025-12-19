@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.ui_state import UIPreferences, CheckpointData
 
 
 class SessionState(str, Enum):
@@ -290,6 +293,9 @@ class Session:
     errors: list[ErrorEntry] = field(default_factory=list)
     reopen_count: int = 0  # NEW: How many times session was reopened
     processing_status: ProcessingStatus = ProcessingStatus.PENDING  # NEW
+    # UI presentation layer fields (005-telegram-ux-overhaul)
+    ui_preferences: Optional["UIPreferences"] = None
+    checkpoint_data: Optional["CheckpointData"] = None
 
     def folder_path(self, sessions_root: Path) -> Path:
         """Get the filesystem path for this session's folder."""
@@ -379,11 +385,25 @@ class Session:
             "errors": [e.to_dict() for e in self.errors],
             "reopen_count": self.reopen_count,
             "processing_status": self.processing_status.value,
+            # UI presentation layer fields (005-telegram-ux-overhaul)
+            "ui_preferences": self.ui_preferences.to_dict() if self.ui_preferences else None,
+            "checkpoint_data": self.checkpoint_data.to_dict() if self.checkpoint_data else None,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Session":
         """Create from dictionary (JSON deserialization)."""
+        # Import here to avoid circular imports
+        from src.models.ui_state import UIPreferences, CheckpointData
+        
+        ui_prefs = None
+        if data.get("ui_preferences"):
+            ui_prefs = UIPreferences.from_dict(data["ui_preferences"])
+        
+        checkpoint = None
+        if data.get("checkpoint_data"):
+            checkpoint = CheckpointData.from_dict(data["checkpoint_data"])
+        
         return cls(
             id=data["id"],
             state=SessionState(data["state"]),
@@ -403,4 +423,6 @@ class Session:
             processing_status=ProcessingStatus(
                 data.get("processing_status", "PENDING")
             ),
+            ui_preferences=ui_prefs,
+            checkpoint_data=checkpoint,
         )
