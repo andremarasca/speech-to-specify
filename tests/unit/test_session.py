@@ -558,3 +558,383 @@ class TestSessionNewFields:
         assert session.intelligible_name == ""
         assert session.name_source == NameSource.FALLBACK_TIMESTAMP
         assert session.embedding is None
+
+
+# =============================================================================
+# Tests for 004-resilient-voice-capture extensions
+# =============================================================================
+
+
+class TestSessionStateExtensions:
+    """Tests for extended SessionState enum (004-resilient-voice-capture)."""
+    
+    def test_new_states_exist(self):
+        """New states should be defined."""
+        assert hasattr(SessionState, "READY")
+        assert hasattr(SessionState, "EMBEDDING")
+        assert hasattr(SessionState, "INTERRUPTED")
+    
+    def test_ready_can_reopen_to_collecting(self):
+        """READY state should allow transition to COLLECTING for reopen."""
+        assert SessionState.READY.can_transition_to(SessionState.COLLECTING)
+    
+    def test_interrupted_can_recover_to_collecting(self):
+        """INTERRUPTED state should allow transition to COLLECTING for recovery."""
+        assert SessionState.INTERRUPTED.can_transition_to(SessionState.COLLECTING)
+    
+    def test_collecting_can_become_interrupted(self):
+        """COLLECTING should be able to transition to INTERRUPTED on crash."""
+        assert SessionState.COLLECTING.can_transition_to(SessionState.INTERRUPTED)
+    
+    def test_transcribed_can_become_embedding(self):
+        """TRANSCRIBED should allow transition to EMBEDDING."""
+        assert SessionState.TRANSCRIBED.can_transition_to(SessionState.EMBEDDING)
+    
+    def test_embedding_becomes_ready(self):
+        """EMBEDDING should allow transition to READY."""
+        assert SessionState.EMBEDDING.can_transition_to(SessionState.READY)
+
+
+class TestProcessingStatusEnum:
+    """Tests for ProcessingStatus enum (004-resilient-voice-capture)."""
+    
+    def test_all_statuses_exist(self):
+        """All processing statuses should be defined."""
+        from src.models.session import ProcessingStatus
+        
+        assert hasattr(ProcessingStatus, "PENDING")
+        assert hasattr(ProcessingStatus, "TRANSCRIPTION_QUEUED")
+        assert hasattr(ProcessingStatus, "TRANSCRIPTION_IN_PROGRESS")
+        assert hasattr(ProcessingStatus, "TRANSCRIPTION_COMPLETE")
+        assert hasattr(ProcessingStatus, "EMBEDDING_QUEUED")
+        assert hasattr(ProcessingStatus, "EMBEDDING_IN_PROGRESS")
+        assert hasattr(ProcessingStatus, "COMPLETE")
+        assert hasattr(ProcessingStatus, "PARTIAL_FAILURE")
+    
+    def test_processing_status_values_are_strings(self):
+        """ProcessingStatus values should be strings."""
+        from src.models.session import ProcessingStatus
+        
+        assert ProcessingStatus.PENDING.value == "PENDING"
+        assert ProcessingStatus.COMPLETE.value == "COMPLETE"
+
+
+class TestAudioEntryChecksum:
+    """Tests for AudioEntry checksum and reopen_epoch fields (004-resilient-voice-capture)."""
+    
+    def test_audio_entry_has_checksum_field(self):
+        """AudioEntry should have checksum field."""
+        entry = AudioEntry(
+            sequence=1,
+            received_at=datetime.now(timezone.utc),
+            telegram_file_id="test_id",
+            local_filename="001_audio.ogg",
+            file_size_bytes=1024,
+            checksum="sha256:abc123",
+        )
+        assert entry.checksum == "sha256:abc123"
+    
+    def test_audio_entry_has_reopen_epoch_field(self):
+        """AudioEntry should have reopen_epoch field."""
+        entry = AudioEntry(
+            sequence=1,
+            received_at=datetime.now(timezone.utc),
+            telegram_file_id="test_id",
+            local_filename="001_audio.ogg",
+            file_size_bytes=1024,
+            reopen_epoch=2,
+        )
+        assert entry.reopen_epoch == 2
+    
+    def test_audio_entry_reopen_epoch_defaults_to_zero(self):
+        """AudioEntry reopen_epoch should default to 0."""
+        entry = AudioEntry(
+            sequence=1,
+            received_at=datetime.now(timezone.utc),
+            telegram_file_id="test_id",
+            local_filename="001_audio.ogg",
+            file_size_bytes=1024,
+        )
+        assert entry.reopen_epoch == 0
+    
+    def test_audio_entry_to_dict_includes_new_fields(self):
+        """AudioEntry.to_dict() should include checksum and reopen_epoch."""
+        entry = AudioEntry(
+            sequence=1,
+            received_at=datetime.now(timezone.utc),
+            telegram_file_id="test_id",
+            local_filename="001_audio.ogg",
+            file_size_bytes=1024,
+            checksum="sha256:abc123",
+            reopen_epoch=1,
+        )
+        data = entry.to_dict()
+        
+        assert "checksum" in data
+        assert data["checksum"] == "sha256:abc123"
+        assert "reopen_epoch" in data
+        assert data["reopen_epoch"] == 1
+    
+    def test_audio_entry_from_dict_handles_new_fields(self):
+        """AudioEntry.from_dict() should handle new fields."""
+        data = {
+            "sequence": 1,
+            "received_at": "2025-12-18T14:30:00+00:00",
+            "telegram_file_id": "test_id",
+            "local_filename": "001_audio.ogg",
+            "file_size_bytes": 1024,
+            "transcription_status": "PENDING",
+            "checksum": "sha256:def456",
+            "reopen_epoch": 3,
+        }
+        entry = AudioEntry.from_dict(data)
+        
+        assert entry.checksum == "sha256:def456"
+        assert entry.reopen_epoch == 3
+    
+    def test_audio_entry_from_dict_handles_missing_new_fields(self):
+        """AudioEntry.from_dict() should handle legacy data without new fields."""
+        data = {
+            "sequence": 1,
+            "received_at": "2025-12-18T14:30:00+00:00",
+            "telegram_file_id": "test_id",
+            "local_filename": "001_audio.ogg",
+            "file_size_bytes": 1024,
+            "transcription_status": "PENDING",
+        }
+        entry = AudioEntry.from_dict(data)
+        
+        assert entry.checksum is None
+        assert entry.reopen_epoch == 0
+
+
+class TestSessionReopenFields:
+    """Tests for Session reopen_count and processing_status fields (004-resilient-voice-capture)."""
+    
+    def test_session_has_reopen_count_field(self):
+        """Session should have reopen_count field."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            reopen_count=2,
+        )
+        assert session.reopen_count == 2
+    
+    def test_session_reopen_count_defaults_to_zero(self):
+        """Session reopen_count should default to 0."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.reopen_count == 0
+    
+    def test_session_has_processing_status_field(self):
+        """Session should have processing_status field."""
+        from src.models.session import ProcessingStatus
+        
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            processing_status=ProcessingStatus.TRANSCRIPTION_IN_PROGRESS,
+        )
+        assert session.processing_status == ProcessingStatus.TRANSCRIPTION_IN_PROGRESS
+    
+    def test_session_processing_status_defaults_to_pending(self):
+        """Session processing_status should default to PENDING."""
+        from src.models.session import ProcessingStatus
+        
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.processing_status == ProcessingStatus.PENDING
+    
+    def test_session_to_dict_includes_new_fields(self):
+        """Session.to_dict() should include reopen_count and processing_status."""
+        from src.models.session import ProcessingStatus
+        
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            reopen_count=1,
+            processing_status=ProcessingStatus.COMPLETE,
+        )
+        data = session.to_dict()
+        
+        assert "reopen_count" in data
+        assert data["reopen_count"] == 1
+        assert "processing_status" in data
+        assert data["processing_status"] == "COMPLETE"
+    
+    def test_session_from_dict_handles_new_fields(self):
+        """Session.from_dict() should handle new fields."""
+        data = {
+            "id": "2025-12-18_14-30-00",
+            "state": "COLLECTING",
+            "created_at": "2025-12-18T14:30:00",
+            "chat_id": 123,
+            "reopen_count": 3,
+            "processing_status": "EMBEDDING_IN_PROGRESS",
+        }
+        session = Session.from_dict(data)
+        
+        from src.models.session import ProcessingStatus
+        assert session.reopen_count == 3
+        assert session.processing_status == ProcessingStatus.EMBEDDING_IN_PROGRESS
+    
+    def test_session_from_dict_handles_missing_new_fields(self):
+        """Session.from_dict() should handle legacy data without new fields."""
+        data = {
+            "id": "2025-12-18_14-30-00",
+            "state": "COLLECTING",
+            "created_at": "2025-12-18T14:30:00",
+            "chat_id": 123,
+        }
+        session = Session.from_dict(data)
+        
+        from src.models.session import ProcessingStatus
+        assert session.reopen_count == 0
+        assert session.processing_status == ProcessingStatus.PENDING
+
+
+class TestSessionNewProperties:
+    """Tests for new Session properties (004-resilient-voice-capture)."""
+    
+    def test_can_reopen_returns_true_for_ready(self):
+        """can_reopen should return True for READY state."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.READY,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.can_reopen is True
+    
+    def test_can_reopen_returns_false_for_collecting(self):
+        """can_reopen should return False for COLLECTING state."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.can_reopen is False
+    
+    def test_total_audio_duration_sums_entries(self):
+        """total_audio_duration should sum all audio entry durations."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            audio_entries=[
+                AudioEntry(
+                    sequence=1,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id1",
+                    local_filename="001.ogg",
+                    file_size_bytes=1024,
+                    duration_seconds=10.5,
+                ),
+                AudioEntry(
+                    sequence=2,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id2",
+                    local_filename="002.ogg",
+                    file_size_bytes=2048,
+                    duration_seconds=20.3,
+                ),
+            ]
+        )
+        assert session.total_audio_duration == 30.8
+    
+    def test_total_audio_duration_handles_none_durations(self):
+        """total_audio_duration should treat None durations as 0."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            audio_entries=[
+                AudioEntry(
+                    sequence=1,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id1",
+                    local_filename="001.ogg",
+                    file_size_bytes=1024,
+                    duration_seconds=10.0,
+                ),
+                AudioEntry(
+                    sequence=2,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id2",
+                    local_filename="002.ogg",
+                    file_size_bytes=2048,
+                    duration_seconds=None,
+                ),
+            ]
+        )
+        assert session.total_audio_duration == 10.0
+    
+    def test_pending_transcription_count(self):
+        """pending_transcription_count should count PENDING entries."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            audio_entries=[
+                AudioEntry(
+                    sequence=1,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id1",
+                    local_filename="001.ogg",
+                    file_size_bytes=1024,
+                    transcription_status=TranscriptionStatus.PENDING,
+                ),
+                AudioEntry(
+                    sequence=2,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id2",
+                    local_filename="002.ogg",
+                    file_size_bytes=2048,
+                    transcription_status=TranscriptionStatus.SUCCESS,
+                ),
+                AudioEntry(
+                    sequence=3,
+                    received_at=datetime.now(timezone.utc),
+                    telegram_file_id="id3",
+                    local_filename="003.ogg",
+                    file_size_bytes=3072,
+                    transcription_status=TranscriptionStatus.PENDING,
+                ),
+            ]
+        )
+        assert session.pending_transcription_count == 2
+
+
+class TestMatchTypeExtensions:
+    """Tests for extended MatchType enum (004-resilient-voice-capture)."""
+    
+    def test_new_match_types_exist(self):
+        """New match types should be defined."""
+        assert hasattr(MatchType, "SEMANTIC")
+        assert hasattr(MatchType, "TEXT")
+        assert hasattr(MatchType, "CHRONOLOGICAL")
+    
+    def test_new_match_types_have_string_values(self):
+        """New match types should have string values."""
+        assert MatchType.SEMANTIC.value == "SEMANTIC"
+        assert MatchType.TEXT.value == "TEXT"
+        assert MatchType.CHRONOLOGICAL.value == "CHRONOLOGICAL"
+

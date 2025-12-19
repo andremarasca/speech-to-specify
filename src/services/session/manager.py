@@ -12,7 +12,9 @@ Extended for 003-auto-session-audio with:
 """
 
 import logging
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +39,50 @@ class InvalidStateError(Exception):
     """Raised when an operation is invalid for the current session state."""
 
     pass
+
+
+class RecoveryAction(str, Enum):
+    """Actions available for recovering an interrupted session."""
+    
+    RESUME = "RESUME"      # Continue collecting audio
+    FINALIZE = "FINALIZE"  # Process what exists
+    DISCARD = "DISCARD"    # Abandon session (audio preserved)
+
+
+@dataclass
+class InterruptedSession:
+    """Session potentially interrupted by crash.
+    
+    Attributes:
+        session_id: Session identifier
+        last_audio_at: When last audio was received
+        audio_count: Number of audio files
+        orphan_files: Files not tracked in metadata
+        recovery_options: Available recovery actions
+    """
+    
+    session_id: str
+    last_audio_at: Optional[datetime]
+    audio_count: int
+    orphan_files: list[str]
+    recovery_options: list[RecoveryAction]
+
+
+@dataclass
+class RecoverResult:
+    """Result of recovery action.
+    
+    Attributes:
+        session_id: Session that was recovered
+        action_taken: The recovery action performed
+        new_state: Session state after recovery
+        message: User-friendly message
+    """
+    
+    session_id: str
+    action_taken: RecoveryAction
+    new_state: SessionState
+    message: str
 
 
 class SessionManager:
@@ -349,6 +395,220 @@ class SessionManager:
 
         logger.info(f"Cleaned up {cleaned} old sessions")
         return cleaned
+
+    def reopen_session(self, session_id: str) -> Session:
+        """
+        Reopen a READY session for additional audio.
+        
+        Transitions READY → COLLECTING and increments reopen_count.
+        Original audio entries are preserved with their original epoch.
+        New audio added after reopen should use the incremented reopen_count as epoch.
+        
+        Args:
+            session_id: Session to reopen
+            
+        Returns:
+            Reopened session in COLLECTING state
+            
+        Raises:
+            InvalidStateError: If session not in READY state
+            SessionStorageError: If session not found
+        """
+        session = self.storage.load(session_id)
+        if not session:
+            raise SessionStorageError(f"Session {session_id} not found")
+        
+        if not session.can_reopen:
+            raise InvalidStateError(
+                f"Cannot reopen session in {session.state.value} state "
+                f"(must be in READY state)"
+            )
+        
+        # Increment reopen count
+        session.reopen_count += 1
+        
+        # Transition to COLLECTING
+        session.state = SessionState.COLLECTING
+        
+        # Clear finalized_at for reopened session
+        session.finalized_at = None
+        
+        self.storage.save(session)
+        
+        logger.info(
+            f"Reopened session {session.id} (reopen_count={session.reopen_count})"
+        )
+        return session
+
+    # =========================================================================
+    # Recovery Methods (004-resilient-voice-capture)
+    # =========================================================================
+
+    def detect_interrupted_sessions(
+        self,
+        inactivity_threshold: timedelta = timedelta(hours=1)
+    ) -> list[InterruptedSession]:
+        """
+        Find sessions that may have been interrupted by crash.
+        
+        Criteria:
+        - State is COLLECTING or INTERRUPTED
+        - No audio received in > threshold time (for COLLECTING)
+        - Session has audio but wasn't finalized properly
+        
+        Args:
+            inactivity_threshold: Time since last audio to consider interrupted
+            
+        Returns:
+            List of potentially interrupted sessions
+        """
+        interrupted = []
+        sessions = self.storage.list_sessions(limit=100)
+        now = generate_timestamp()
+        
+        for session in sessions:
+            # Already marked as interrupted
+            if session.state == SessionState.INTERRUPTED:
+                interrupted.append(InterruptedSession(
+                    session_id=session.id,
+                    last_audio_at=self._get_last_audio_time(session),
+                    audio_count=session.audio_count,
+                    orphan_files=[],  # Could scan for orphan files
+                    recovery_options=[
+                        RecoveryAction.RESUME,
+                        RecoveryAction.FINALIZE,
+                        RecoveryAction.DISCARD,
+                    ],
+                ))
+                continue
+            
+            # Check for stale COLLECTING sessions
+            if session.state == SessionState.COLLECTING:
+                last_audio = self._get_last_audio_time(session)
+                
+                if last_audio:
+                    # Has audio but been inactive
+                    if now - last_audio > inactivity_threshold:
+                        interrupted.append(InterruptedSession(
+                            session_id=session.id,
+                            last_audio_at=last_audio,
+                            audio_count=session.audio_count,
+                            orphan_files=[],
+                            recovery_options=[
+                                RecoveryAction.RESUME,
+                                RecoveryAction.FINALIZE,
+                                RecoveryAction.DISCARD,
+                            ],
+                        ))
+                else:
+                    # No audio and been around for a while
+                    if now - session.created_at > inactivity_threshold:
+                        interrupted.append(InterruptedSession(
+                            session_id=session.id,
+                            last_audio_at=None,
+                            audio_count=0,
+                            orphan_files=[],
+                            recovery_options=[
+                                RecoveryAction.DISCARD,
+                            ],
+                        ))
+        
+        return interrupted
+    
+    def _get_last_audio_time(self, session: Session) -> Optional[datetime]:
+        """Get the time of the last audio entry."""
+        if not session.audio_entries:
+            return None
+        return max(e.received_at for e in session.audio_entries)
+
+    def recover_session(
+        self,
+        session_id: str,
+        action: RecoveryAction
+    ) -> RecoverResult:
+        """
+        Recover an interrupted session.
+        
+        Args:
+            session_id: Session to recover
+            action: Recovery action to take
+            
+        Returns:
+            RecoverResult with new state and message
+            
+        Raises:
+            InvalidStateError: If session not in INTERRUPTED state
+            SessionStorageError: If session not found
+        """
+        session = self.storage.load(session_id)
+        if not session:
+            raise SessionStorageError(f"Session {session_id} not found")
+        
+        if session.state != SessionState.INTERRUPTED:
+            raise InvalidStateError(
+                f"Cannot recover session in {session.state.value} state "
+                f"(must be in INTERRUPTED state)"
+            )
+        
+        if action == RecoveryAction.RESUME:
+            # Return to COLLECTING state
+            session.state = SessionState.COLLECTING
+            self.storage.save(session)
+            
+            return RecoverResult(
+                session_id=session_id,
+                action_taken=action,
+                new_state=SessionState.COLLECTING,
+                message=f"✅ Session recovered. Recording resumed.",
+            )
+        
+        elif action == RecoveryAction.FINALIZE:
+            # Finalize and queue for processing
+            if session.audio_count == 0:
+                # Can't finalize empty session
+                session.state = SessionState.ERROR
+                self.storage.save(session)
+                
+                return RecoverResult(
+                    session_id=session_id,
+                    action_taken=action,
+                    new_state=SessionState.ERROR,
+                    message=f"⚠️ Cannot finalize session with no audio. Marked as error.",
+                )
+            
+            session.state = SessionState.TRANSCRIBING
+            session.finalized_at = generate_timestamp()
+            self.storage.save(session)
+            
+            return RecoverResult(
+                session_id=session_id,
+                action_taken=action,
+                new_state=SessionState.TRANSCRIBING,
+                message=f"✅ Interrupted session finalized. Processing {session.audio_count} audio file(s).",
+            )
+        
+        elif action == RecoveryAction.DISCARD:
+            # Mark as ERROR but preserve data
+            session.state = SessionState.ERROR
+            session.errors.append(
+                ErrorEntry(
+                    timestamp=generate_timestamp(),
+                    operation="recovery",
+                    message="Session discarded by user",
+                    recoverable=False,
+                )
+            )
+            self.storage.save(session)
+            
+            return RecoverResult(
+                session_id=session_id,
+                action_taken=action,
+                new_state=SessionState.ERROR,
+                message=f"✅ Session discarded. Audio files preserved in session folder.",
+            )
+        
+        else:
+            raise ValueError(f"Unknown recovery action: {action}")
 
     # =========================================================================
     # Auto-Session Methods (003-auto-session-audio)

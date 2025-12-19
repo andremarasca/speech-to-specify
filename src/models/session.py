@@ -18,26 +18,44 @@ class SessionState(str, Enum):
     Session lifecycle states.
 
     State transitions:
-        COLLECTING → TRANSCRIBING → TRANSCRIBED → PROCESSING → PROCESSED
+        COLLECTING → TRANSCRIBING → TRANSCRIBED → EMBEDDING → READY
+        READY → COLLECTING (on /reopen)
+        COLLECTING → INTERRUPTED (on crash detection)
+        INTERRUPTED → COLLECTING (on /recover)
         Any state → ERROR (on unrecoverable failure)
+        
+    Per data-model.md for 004-resilient-voice-capture.
     """
 
+    # Active states
     COLLECTING = "COLLECTING"  # Session open, accepting audio messages
+    
+    # Processing states
     TRANSCRIBING = "TRANSCRIBING"  # Finalized, transcription in progress
     TRANSCRIBED = "TRANSCRIBED"  # All audios transcribed, ready for downstream
+    EMBEDDING = "EMBEDDING"  # Generating embeddings (NEW for 004)
     PROCESSING = "PROCESSING"  # Downstream processor running
     PROCESSED = "PROCESSED"  # Downstream complete, all artifacts available
+    
+    # Terminal states
+    READY = "READY"  # Fully processed, searchable (NEW for 004)
     ERROR = "ERROR"  # Unrecoverable error, session halted
+    
+    # Recovery states
+    INTERRUPTED = "INTERRUPTED"  # Crash recovery needed (NEW for 004)
 
     @classmethod
     def allowed_transitions(cls) -> dict["SessionState", list["SessionState"]]:
         """Return allowed state transitions."""
         return {
-            cls.COLLECTING: [cls.TRANSCRIBING, cls.ERROR],
+            cls.COLLECTING: [cls.TRANSCRIBING, cls.INTERRUPTED, cls.ERROR],
             cls.TRANSCRIBING: [cls.TRANSCRIBED, cls.ERROR],
-            cls.TRANSCRIBED: [cls.PROCESSING, cls.ERROR],
+            cls.TRANSCRIBED: [cls.EMBEDDING, cls.PROCESSING, cls.ERROR],
+            cls.EMBEDDING: [cls.READY, cls.ERROR],
             cls.PROCESSING: [cls.PROCESSED, cls.ERROR],
-            cls.PROCESSED: [cls.ERROR],  # Terminal state, only error possible
+            cls.PROCESSED: [cls.READY, cls.ERROR],  # Can transition to READY for reopen
+            cls.READY: [cls.COLLECTING, cls.ERROR],  # Can reopen
+            cls.INTERRUPTED: [cls.COLLECTING, cls.ERROR],  # Can recover
             cls.ERROR: [],  # Terminal state, no transitions allowed
         }
 
@@ -67,14 +85,40 @@ class MatchType(str, Enum):
     How a session reference was matched.
 
     Used when resolving natural language session references.
+    Extended in 004-resilient-voice-capture for search types.
     """
 
+    # Existing match types for session resolution
     EXACT_SUBSTRING = "EXACT_SUBSTRING"  # Name contains reference exactly
     FUZZY_SUBSTRING = "FUZZY_SUBSTRING"  # Name contains reference with edits
     SEMANTIC_SIMILARITY = "SEMANTIC_SIMILARITY"  # Embedding similarity match
     ACTIVE_CONTEXT = "ACTIVE_CONTEXT"  # Implicit (no reference, used active)
     AMBIGUOUS = "AMBIGUOUS"  # Multiple candidates, needs clarification
     NOT_FOUND = "NOT_FOUND"  # No match found
+    
+    # New match types for search (004-resilient-voice-capture)
+    SEMANTIC = "SEMANTIC"  # Embedding similarity search
+    TEXT = "TEXT"  # Substring/keyword match
+    CHRONOLOGICAL = "CHRONOLOGICAL"  # Date-based listing
+
+
+class ProcessingStatus(str, Enum):
+    """Overall processing status for session.
+    
+    Tracks the progression of background processing tasks
+    from audio capture through embedding generation.
+    
+    Per data-model.md for 004-resilient-voice-capture.
+    """
+    
+    PENDING = "PENDING"  # Audio collected, not processed
+    TRANSCRIPTION_QUEUED = "TRANSCRIPTION_QUEUED"
+    TRANSCRIPTION_IN_PROGRESS = "TRANSCRIPTION_IN_PROGRESS"
+    TRANSCRIPTION_COMPLETE = "TRANSCRIPTION_COMPLETE"
+    EMBEDDING_QUEUED = "EMBEDDING_QUEUED"
+    EMBEDDING_IN_PROGRESS = "EMBEDDING_IN_PROGRESS"
+    COMPLETE = "COMPLETE"  # All processing done
+    PARTIAL_FAILURE = "PARTIAL_FAILURE"  # Some segments failed
 
 
 @dataclass
@@ -120,6 +164,8 @@ class AudioEntry:
         duration_seconds: Duration of audio (if available from Telegram)
         transcription_status: Current transcription status
         transcript_filename: Filename of transcript (e.g., "001_audio.txt")
+        checksum: SHA-256 checksum for integrity verification (NEW for 004)
+        reopen_epoch: Which reopen cycle added this segment (0 = original, NEW for 004)
     """
 
     sequence: int
@@ -130,6 +176,8 @@ class AudioEntry:
     duration_seconds: Optional[float] = None
     transcription_status: TranscriptionStatus = TranscriptionStatus.PENDING
     transcript_filename: Optional[str] = None
+    checksum: Optional[str] = None  # NEW: SHA-256 integrity checksum
+    reopen_epoch: int = 0  # NEW: 0 = original session, increments on reopen
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -142,6 +190,8 @@ class AudioEntry:
             "duration_seconds": self.duration_seconds,
             "transcription_status": self.transcription_status.value,
             "transcript_filename": self.transcript_filename,
+            "checksum": self.checksum,
+            "reopen_epoch": self.reopen_epoch,
         }
 
     @classmethod
@@ -156,6 +206,8 @@ class AudioEntry:
             duration_seconds=data.get("duration_seconds"),
             transcription_status=TranscriptionStatus(data["transcription_status"]),
             transcript_filename=data.get("transcript_filename"),
+            checksum=data.get("checksum"),
+            reopen_epoch=data.get("reopen_epoch", 0),
         )
 
 
@@ -222,6 +274,8 @@ class Session:
         finalized_at: When the session was finalized (None if still collecting)
         audio_entries: List of captured audio messages
         errors: List of errors that occurred during processing
+        reopen_count: Number of times session has been reopened (NEW for 004)
+        processing_status: Overall processing status (NEW for 004)
     """
 
     id: str
@@ -234,6 +288,8 @@ class Session:
     finalized_at: Optional[datetime] = None
     audio_entries: list[AudioEntry] = field(default_factory=list)
     errors: list[ErrorEntry] = field(default_factory=list)
+    reopen_count: int = 0  # NEW: How many times session was reopened
+    processing_status: ProcessingStatus = ProcessingStatus.PENDING  # NEW
 
     def folder_path(self, sessions_root: Path) -> Path:
         """Get the filesystem path for this session's folder."""
@@ -286,6 +342,27 @@ class Session:
     def can_process(self) -> bool:
         """Check if session can be sent to downstream processing."""
         return self.state == SessionState.TRANSCRIBED
+    
+    @property
+    def can_reopen(self) -> bool:
+        """Check if session can be reopened for additional audio."""
+        return self.state == SessionState.READY
+    
+    @property
+    def total_audio_duration(self) -> float:
+        """Get total duration of all audio entries in seconds."""
+        return sum(
+            e.duration_seconds or 0.0 
+            for e in self.audio_entries
+        )
+    
+    @property
+    def pending_transcription_count(self) -> int:
+        """Count audio entries pending transcription."""
+        return sum(
+            1 for e in self.audio_entries 
+            if e.transcription_status == TranscriptionStatus.PENDING
+        )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -300,6 +377,8 @@ class Session:
             "finalized_at": self.finalized_at.isoformat() if self.finalized_at else None,
             "audio_entries": [e.to_dict() for e in self.audio_entries],
             "errors": [e.to_dict() for e in self.errors],
+            "reopen_count": self.reopen_count,
+            "processing_status": self.processing_status.value,
         }
 
     @classmethod
@@ -320,4 +399,8 @@ class Session:
             ),
             audio_entries=[AudioEntry.from_dict(e) for e in data.get("audio_entries", [])],
             errors=[ErrorEntry.from_dict(e) for e in data.get("errors", [])],
+            reopen_count=data.get("reopen_count", 0),
+            processing_status=ProcessingStatus(
+                data.get("processing_status", "PENDING")
+            ),
         )
