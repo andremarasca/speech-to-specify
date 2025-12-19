@@ -96,7 +96,7 @@ Single project structure per plan.md:
 ### Edge Cases for User Story 1
 
 - [X] T031e [US1] Detect empty/silent voice messages and send ERR_TRANSCRIPTION_002 warning with continue option
-- [ ] T031f [US1] Implement audio queue with position feedback when rate limit exceeded (ERR_TELEGRAM_002)
+- [X] T031f [US1] Implement audio queue with position feedback when rate limit exceeded (ERR_TELEGRAM_002)
 - [X] T031g [P] [US1] Unit test for empty audio detection in tests/unit/test_audio_validation.py
 ---
 
@@ -108,24 +108,24 @@ Single project structure per plan.md:
 
 ### Tests for User Story 2
 
-- [ ] T032 [P] [US2] Contract test for ProgressReporter.start_operation() in tests/contract/test_progress_reporter.py
-- [ ] T033 [P] [US2] Contract test for ProgressReporter.update_progress() with throttling in tests/contract/test_progress_reporter.py
-- [ ] T034 [P] [US2] Contract test for UIService.send_progress() in tests/contract/test_ui_service.py
-- [ ] T035 [P] [US2] Contract test for UIService.update_progress() message editing in tests/contract/test_ui_service.py
+- [X] T032 [P] [US2] Contract test for ProgressReporter.start_operation() in tests/contract/test_progress_reporter.py
+- [X] T033 [P] [US2] Contract test for ProgressReporter.update_progress() with throttling in tests/contract/test_progress_reporter.py
+- [X] T034 [P] [US2] Contract test for UIService.send_progress() in tests/contract/test_ui_service.py
+- [X] T035 [P] [US2] Contract test for UIService.update_progress() message editing in tests/contract/test_ui_service.py
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Create ProgressReporterProtocol and ProgressReporter class in src/services/presentation/progress.py
-- [ ] T037 [US2] Implement ProgressReporter.start_operation() in src/services/presentation/progress.py
-- [ ] T038 [US2] Implement ProgressReporter.update_progress() with throttling logic in src/services/presentation/progress.py
-- [ ] T039 [US2] Implement ProgressReporter.complete_operation() in src/services/presentation/progress.py
-- [ ] T040 [US2] Implement ProgressReporter.is_timed_out() in src/services/presentation/progress.py
-- [ ] T041 [US2] Implement format_progress_bar() helper in src/services/presentation/progress.py
-- [ ] T042 [US2] Implement UIService.send_progress() in src/services/telegram/ui_service.py
-- [ ] T043 [US2] Implement UIService.update_progress() with message.edit_text() in src/services/telegram/ui_service.py
-- [ ] T044 [US2] Integrate ProgressReporter into transcription workflow to emit progress updates
+- [X] T036 [US2] Create ProgressReporterProtocol and ProgressReporter class in src/services/presentation/progress.py
+- [X] T037 [US2] Implement ProgressReporter.start_operation() in src/services/presentation/progress.py
+- [X] T038 [US2] Implement ProgressReporter.update_progress() with throttling logic in src/services/presentation/progress.py
+- [X] T039 [US2] Implement ProgressReporter.complete_operation() in src/services/presentation/progress.py
+- [X] T040 [US2] Implement ProgressReporter.is_timed_out() in src/services/presentation/progress.py
+- [X] T041 [US2] Implement format_progress_bar() helper in src/services/presentation/progress.py
+- [X] T042 [US2] Implement UIService.send_progress() in src/services/telegram/ui_service.py
+- [X] T043 [US2] Implement UIService.update_progress() with message.edit_text() in src/services/telegram/ui_service.py
+- [X] T044 [US2] Integrate ProgressReporter into transcription workflow to emit progress updates
 
-**Checkpoint**: User Story 2 complete - progress feedback visible during transcription
+**Checkpoint**: User Story 2 complete - progress feedback visible during transcription ✅
 
 ---
 
@@ -137,23 +137,23 @@ Single project structure per plan.md:
 
 ### Tests for User Story 3
 
-- [ ] T045 [P] [US3] Contract test for ErrorPresentationLayer.translate_exception() in tests/contract/test_error_presentation.py
-- [ ] T046 [P] [US3] Contract test for ErrorPresentationLayer.format_for_telegram() in tests/contract/test_error_presentation.py
-- [ ] T047 [P] [US3] Contract test verifying no stack traces in user messages in tests/contract/test_error_presentation.py
+- [X] T045 [P] [US3] Contract test for ErrorPresentationLayer.translate_exception() in tests/contract/test_error_presentation.py
+- [X] T046 [P] [US3] Contract test for ErrorPresentationLayer.format_for_telegram() in tests/contract/test_error_presentation.py
+- [X] T047 [P] [US3] Contract test verifying no stack traces in user messages in tests/contract/test_error_presentation.py
 
 ### Implementation for User Story 3
 
-- [ ] T048 [US3] Create ErrorPresentationProtocol and ErrorPresentationLayer class in src/services/presentation/error_handler.py
-- [ ] T049 [US3] Implement ErrorPresentationLayer.translate_exception() with logging in src/services/presentation/error_handler.py
-- [ ] T050 [US3] Implement ErrorPresentationLayer.get_error_by_code() in src/services/presentation/error_handler.py
-- [ ] T051 [US3] Implement ErrorPresentationLayer.register_exception_mapping() in src/services/presentation/error_handler.py
-- [ ] T052 [US3] Implement ErrorPresentationLayer.format_for_telegram() in src/services/presentation/error_handler.py
-- [ ] T053 [US3] Register default exception mappings (FileNotFoundError, PermissionError, TimeoutError, etc.)
-- [ ] T054 [US3] Implement UIService.send_error() using ErrorPresentationLayer in src/services/telegram/ui_service.py
-- [ ] T055 [US3] Wrap bot handlers with error presentation layer to catch and translate exceptions
-- [ ] T056 [US3] Register CallbackQueryHandler for retry: callbacks in src/services/telegram/bot.py
+- [X] T048 [US3] Create ErrorPresentationProtocol and ErrorPresentationLayer class in src/services/presentation/error_handler.py
+- [X] T049 [US3] Implement ErrorPresentationLayer.translate_exception() with logging in src/services/presentation/error_handler.py
+- [X] T050 [US3] Implement ErrorPresentationLayer.get_error_by_code() in src/services/presentation/error_handler.py
+- [X] T051 [US3] Implement ErrorPresentationLayer.register_exception_mapping() in src/services/presentation/error_handler.py
+- [X] T052 [US3] Implement ErrorPresentationLayer.format_for_telegram() in src/services/presentation/error_handler.py
+- [X] T053 [US3] Register default exception mappings (FileNotFoundError, PermissionError, TimeoutError, etc.)
+- [X] T054 [US3] Implement UIService.send_error() using ErrorPresentationLayer in src/services/telegram/ui_service.py
+- [X] T055 [US3] Wrap bot handlers with error presentation layer to catch and translate exceptions
+- [X] T056 [US3] Register CallbackQueryHandler for retry: callbacks in src/services/telegram/bot.py
 
-**Checkpoint**: User Story 3 complete - errors are humanized with recovery options
+**Checkpoint**: User Story 3 complete - errors are humanized with recovery options ✅
 
 ---
 
@@ -165,17 +165,17 @@ Single project structure per plan.md:
 
 ### Tests for User Story 4
 
-- [ ] T057 [P] [US4] Contract test for UIService.send_confirmation_dialog() in tests/contract/test_ui_service.py
-- [ ] T058 [P] [US4] Integration test for session conflict flow in tests/integration/test_inline_keyboard_flow.py
+- [X] T057 [P] [US4] Contract test for UIService.send_confirmation_dialog() in tests/contract/test_ui_service.py
+- [X] T058 [P] [US4] Integration test for session conflict flow in tests/integration/test_inline_keyboard_flow.py
 
 ### Implementation for User Story 4
 
-- [ ] T059 [US4] Implement UIService.send_confirmation_dialog() in src/services/telegram/ui_service.py
-- [ ] T060 [US4] Add SESSION_CONFLICT keyboard type handling in src/services/telegram/keyboards.py
-- [ ] T061 [US4] Implement confirmation callback handlers (confirm:session_conflict:*) in src/services/telegram/bot.py
-- [ ] T062 [US4] Modify /start and voice handler to check for active session and trigger confirmation
+- [X] T059 [US4] Implement UIService.send_confirmation_dialog() in src/services/telegram/ui_service.py
+- [X] T060 [US4] Add SESSION_CONFLICT keyboard type handling in src/services/telegram/keyboards.py
+- [X] T061 [US4] Implement confirmation callback handlers (confirm:session_conflict:*) in src/services/telegram/bot.py
+- [X] T062 [US4] Modify /start and voice handler to check for active session and trigger confirmation
 
-**Checkpoint**: User Story 4 complete - session conflicts prompt user confirmation
+**Checkpoint**: User Story 4 complete - session conflicts prompt user confirmation ✅
 
 ---
 
@@ -187,18 +187,18 @@ Single project structure per plan.md:
 
 ### Tests for User Story 5
 
-- [ ] T063 [P] [US5] Contract test for UIService.send_contextual_help() in tests/contract/test_ui_service.py
-- [ ] T064 [P] [US5] Unit test verifying all keyboards include help option in tests/unit/test_keyboards.py
+- [X] T063 [P] [US5] Contract test for UIService.send_contextual_help() in tests/contract/test_ui_service.py
+- [X] T064 [P] [US5] Unit test verifying all keyboards include help option in tests/unit/test_keyboards.py
 
 ### Implementation for User Story 5
 
-- [ ] T065 [US5] Add contextual help templates to src/lib/messages.py for each KeyboardType context
-- [ ] T066 [US5] Implement UIService.send_contextual_help() in src/services/telegram/ui_service.py
-- [ ] T067 [US5] Ensure all keyboard builders include help button in src/services/telegram/keyboards.py
-- [ ] T068 [US5] Register CallbackQueryHandler for action:help callbacks in src/services/telegram/bot.py
-- [ ] T069 [US5] Implement help callback that tracks context and returns to previous state
+- [X] T065 [US5] Add contextual help templates to src/lib/messages.py for each KeyboardType context
+- [X] T066 [US5] Implement UIService.send_contextual_help() in src/services/telegram/ui_service.py
+- [X] T067 [US5] Ensure all keyboard builders include help button in src/services/telegram/keyboards.py
+- [X] T068 [US5] Register CallbackQueryHandler for action:help callbacks in src/services/telegram/bot.py
+- [X] T069 [US5] Implement help callback that tracks context and returns to previous state
 
-**Checkpoint**: User Story 5 complete - contextual help available throughout flow
+**Checkpoint**: User Story 5 complete - contextual help available throughout flow ✅
 
 ---
 
@@ -210,18 +210,18 @@ Single project structure per plan.md:
 
 ### Tests for User Story 6
 
-- [ ] T070 [P] [US6] Contract test for ProgressReporter timeout detection in tests/contract/test_progress_reporter.py
-- [ ] T071 [P] [US6] Contract test for timeout notification with options in tests/contract/test_ui_service.py
+- [X] T070 [P] [US6] Contract test for ProgressReporter timeout detection in tests/contract/test_progress_reporter.py
+- [X] T071 [P] [US6] Contract test for timeout notification with options in tests/contract/test_ui_service.py
 
 ### Implementation for User Story 6
 
-- [ ] T072 [US6] Implement UIService.send_timeout_warning() in src/services/telegram/ui_service.py
-- [ ] T073 [US6] Add TIMEOUT keyboard type with continue/cancel options in src/services/telegram/keyboards.py
-- [ ] T074 [US6] Implement timeout check loop in ProgressReporter in src/services/presentation/progress.py
-- [ ] T075 [US6] Implement ProgressReporter.cancel_operation() in src/services/presentation/progress.py
-- [ ] T076 [US6] Register CallbackQueryHandler for action:continue_wait and action:cancel_operation in src/services/telegram/bot.py
+- [X] T072 [US6] Implement UIService.send_timeout_warning() in src/services/telegram/ui_service.py
+- [X] T073 [US6] Add TIMEOUT keyboard type with continue/cancel options in src/services/telegram/keyboards.py
+- [X] T074 [US6] Implement timeout check loop in ProgressReporter in src/services/presentation/progress.py
+- [X] T075 [US6] Implement ProgressReporter.cancel_operation() in src/services/presentation/progress.py
+- [X] T076 [US6] Register CallbackQueryHandler for action:continue_wait and action:cancel_operation in src/services/telegram/bot.py
 
-**Checkpoint**: User Story 6 complete - user controls long-running operations
+**Checkpoint**: User Story 6 complete - user controls long-running operations ✅
 
 ---
 
@@ -229,13 +229,15 @@ Single project structure per plan.md:
 
 **Purpose**: Accessibility verification, documentation, final validation
 
-- [ ] T077 [P] Verify all buttons have descriptive text labels (accessibility audit) per FR-013
-- [ ] T078 [P] Verify progress updates include text descriptions per FR-015
-- [ ] T079 [P] Add simplified_ui preference toggle via /preferences command
-- [ ] T080 [P] Implement onboarding flow for first-time users
-- [ ] T081 Run quickstart.md validation checklist
-- [ ] T082 [P] Update README.md with new UX features documentation
-- [ ] T083 Run full test suite and verify all tests pass
+- [X] T077 [P] Verify all buttons have descriptive text labels (accessibility audit) per FR-013
+- [X] T078 [P] Verify progress updates include text descriptions per FR-015
+- [X] T079 [P] Add simplified_ui preference toggle via /preferences command
+- [X] T080 [P] Implement onboarding flow for first-time users
+- [X] T081 Run quickstart.md validation checklist
+- [X] T082 [P] Update README.md with new UX features documentation
+- [X] T083 Run full test suite and verify all tests pass
+
+**Checkpoint**: Phase 9 complete - all polish tasks done, 730 tests passing ✅
 
 ---
 

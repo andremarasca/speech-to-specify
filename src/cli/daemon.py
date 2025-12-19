@@ -37,6 +37,15 @@ from src.services.transcription.base import TranscriptionService
 from src.services.transcription.whisper import WhisperTranscriptionService
 from src.services.session.processor import DownstreamProcessor, ProcessingError
 from src.services.session.checkpoint import save_checkpoint
+from src.services.presentation.progress import ProgressReporter
+from src.services.presentation.error_handler import get_error_presentation_layer
+from src.models.ui_state import (
+    OperationType,
+    ConfirmationContext,
+    ConfirmationType,
+    ConfirmationOption,
+    KeyboardType,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -87,25 +96,90 @@ class VoiceOrchestrator:
         self.downstream_processor = downstream_processor
         self.ui_service = ui_service
         self._chat_id: int = 0  # Will be set from config
+        # T079: Simple in-memory preferences per daemon instance
+        self._simplified_ui: bool = False
 
     def set_chat_id(self, chat_id: int) -> None:
         """Set the authorized chat ID for sending messages."""
         self._chat_id = chat_id
+
+    async def _handle_with_error_presentation(
+        self,
+        handler_coro,
+        event: TelegramEvent,
+        context: dict | None = None,
+    ) -> None:
+        """Wrap handler with error presentation layer.
+        
+        Per T055 from 005-telegram-ux-overhaul.
+        
+        Catches exceptions from handlers and translates them to
+        user-friendly error messages with recovery options.
+        
+        Args:
+            handler_coro: Awaitable handler coroutine
+            event: The event being processed (for chat_id)
+            context: Optional context for error logging
+        """
+        try:
+            await handler_coro
+        except Exception as e:
+            logger.exception(f"Handler error: {e}")
+            
+            # Translate to user-facing error
+            error_layer = get_error_presentation_layer()
+            user_error = error_layer.translate_exception(e, context)
+            
+            # Send error message with UIService if available
+            if self.ui_service:
+                try:
+                    await self.ui_service.send_error(event.chat_id, user_error)
+                except Exception as send_error:
+                    logger.error(f"Failed to send error message: {send_error}")
+                    # Fallback to plain text
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"❌ {user_error.message}",
+                    )
+            else:
+                # No UI service - send plain text
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ {user_error.message}",
+                )
 
     async def handle_event(self, event: TelegramEvent) -> None:
         """
         Handle incoming Telegram events.
 
         Routes events to appropriate handlers based on event type.
+        Wraps handlers with error presentation layer (T055).
         """
         logger.debug(f"Handling event: {event.event_type} from {event.chat_id}")
 
+        context = {"event_type": event.event_type, "chat_id": event.chat_id}
+
         if event.is_command:
-            await self._handle_command(event)
+            context["command"] = event.command_name
+            await self._handle_with_error_presentation(
+                self._handle_command(event),
+                event,
+                context,
+            )
         elif event.is_voice:
-            await self._handle_voice(event)
+            context["file_id"] = event.file_id
+            await self._handle_with_error_presentation(
+                self._handle_voice(event),
+                event,
+                context,
+            )
         elif event.is_callback:
-            await self._handle_callback(event)
+            context["callback_data"] = event.callback_data
+            await self._handle_with_error_presentation(
+                self._handle_callback(event),
+                event,
+                context,
+            )
 
     async def _handle_command(self, event: TelegramEvent) -> None:
         """Route command to appropriate handler."""
@@ -120,6 +194,7 @@ class VoiceOrchestrator:
             "list": self._cmd_list,
             "get": self._cmd_get,
             "session": self._cmd_session,
+            "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
         }
 
         handler = handlers.get(command)
@@ -157,6 +232,8 @@ class VoiceOrchestrator:
             await self._handle_confirm_callback(event, callback_value)
         elif callback_action == "nav":
             await self._handle_nav_callback(event, callback_value)
+        elif callback_action == "retry":
+            await self._handle_retry_callback(event, callback_value)
         else:
             logger.warning(f"Unknown callback action: {callback_action}")
 
@@ -187,8 +264,65 @@ class VoiceOrchestrator:
         elif action == "add_audio":
             # No-op, just acknowledge - user should send voice messages
             pass
+        elif action == "continue_wait":
+            # T076: User chose to continue waiting for long operation
+            await self._handle_continue_wait(event)
+        elif action == "cancel_operation":
+            # T076: User chose to cancel the long-running operation
+            await self._handle_cancel_operation(event)
         else:
             logger.warning(f"Unknown action callback: {action}")
+
+    async def _handle_continue_wait(self, event: TelegramEvent) -> None:
+        """Handle continue_wait callback - user wants to keep waiting.
+        
+        T076: Acknowledges the user's choice to continue waiting
+        without interrupting the operation.
+        """
+        await self.bot.send_message(
+            event.chat_id,
+            "⏳ Ok, continuando a aguardar...\n"
+            "Você será notificado quando a operação terminar.",
+        )
+        logger.debug(f"User chose to continue waiting (chat_id={event.chat_id})")
+
+    async def _handle_cancel_operation(self, event: TelegramEvent) -> None:
+        """Handle cancel_operation callback - user wants to cancel.
+        
+        T076: Cancels the current transcription operation.
+        """
+        from src.services.presentation.progress import get_progress_reporter
+        
+        progress_reporter = get_progress_reporter()
+        
+        # Find operations for this chat
+        # Note: ProgressReporter tracks by operation_id, not chat_id
+        # We need to cancel any active operations
+        active = self.session_manager.get_active_session()
+        
+        if active and active.state == SessionState.TRANSCRIBING:
+            # Cancel via progress reporter
+            operation_id = f"transcription_{active.id}"
+            await progress_reporter.cancel_operation(operation_id)
+            
+            # Mark session as error
+            try:
+                self.session_manager.transition_state(active.id, SessionState.ERROR)
+            except Exception as e:
+                logger.warning(f"Failed to transition session to error: {e}")
+            
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Operação cancelada pelo usuário.\n"
+                f"Sessão `{active.id}` marcada como erro.",
+                parse_mode="Markdown",
+            )
+            logger.info(f"User cancelled operation for session {active.id}")
+        else:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Nenhuma operação em andamento para cancelar.",
+            )
 
     async def _handle_help_callback(self, event: TelegramEvent, topic: str) -> None:
         """Handle help: callbacks - send contextual help."""
@@ -281,29 +415,58 @@ class VoiceOrchestrator:
         """Handle session conflict confirmation response."""
         active = self.session_manager.get_active_session()
         
-        if response == "finalize_new":
-            # Finalize current session and start new one
+        if response == "finalize":
+            # Finalize current session and transcribe
             if active:
                 try:
                     session = self.session_manager.finalize_session(active.id)
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"✅ Finalizing session: `{active.id}`\n⏳ Starting transcription...",
+                        parse_mode="Markdown",
+                    )
                     await self._run_transcription(event.chat_id, session)
                 except Exception as e:
                     logger.error(f"Failed to finalize during conflict: {e}")
-        elif response == "continue":
-            # Continue with current session
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"❌ Failed to finalize: {e}",
+                    )
+        elif response == "new":
+            # Start new session (discard current)
+            if active:
+                try:
+                    # Mark current as error/discarded
+                    self.session_manager.transition_state(active.id, SessionState.ERROR)
+                except Exception as e:
+                    logger.warning(f"Failed to discard session: {e}")
+            
+            # Create new session
+            session = self.session_manager.create_session(chat_id=event.chat_id)
+            await self.bot.send_message(
+                event.chat_id,
+                f"✅ *New Session Started*\n\n"
+                f"🆔 Session: `{session.id}`\n"
+                f"📁 Status: COLLECTING\n\n"
+                f"Send voice messages to record audio.\n"
+                f"Use /done when finished.",
+                parse_mode="Markdown",
+            )
+        elif response == "return":
+            # Return to current session
             if active:
                 await self.bot.send_message(
                     event.chat_id,
-                    f"✅ Continuing session: `{active.id}`\n"
-                    f"Send voice messages.",
+                    f"✅ Returning to session: `{active.id}`\n"
+                    f"🎙️ Audio files: {active.audio_count}\n\n"
+                    f"Send voice messages to continue.",
                     parse_mode="Markdown",
                 )
-        elif response == "cancel":
-            # Cancel action, no change
-            await self.bot.send_message(
-                event.chat_id,
-                "Action cancelled.",
-            )
+            else:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❌ No active session. Use /start to begin.",
+                )
         else:
             logger.warning(f"Unknown session conflict response: {response}")
 
@@ -314,18 +477,138 @@ class VoiceOrchestrator:
         logger.debug(f"Navigation callback: {value}")
         # TODO: Implement pagination state management if needed
 
-    async def _cmd_start(self, event: TelegramEvent) -> None:
-        """Handle /start command - create new session."""
-        try:
-            # Check for existing active session
+    async def _handle_retry_callback(self, event: TelegramEvent, retry_action: str) -> None:
+        """Handle retry: callbacks for error recovery.
+        
+        Per T056 from 005-telegram-ux-overhaul.
+        
+        Routes retry actions to appropriate handlers:
+        - retry:save_audio - Retry saving audio
+        - retry:transcribe - Retry transcription
+        - retry:send_message - Retry sending message
+        - retry:last_action - Retry the last failed action
+        """
+        logger.debug(f"Retry callback: {retry_action}")
+        
+        if retry_action == "save_audio":
+            # User wants to retry saving audio
+            # Acknowledge and prompt to send voice again
+            await self.bot.send_message(
+                event.chat_id,
+                "🎤 Please send the voice message again.",
+            )
+        elif retry_action == "transcribe":
+            # Retry transcription of last session
             active = self.session_manager.get_active_session()
-            if active:
+            if active and active.state == SessionState.FINALIZING:
+                await self._run_transcription(event.chat_id, active)
+            else:
+                # Look for last finalized session with failed transcription
+                sessions = self.session_manager.list_sessions(limit=5)
+                for session in sessions:
+                    if session.has_transcription_errors:
+                        await self.bot.send_message(
+                            event.chat_id,
+                            f"🔄 Retrying transcription for session `{session.id}`...",
+                            parse_mode="Markdown",
+                        )
+                        await self._run_transcription(event.chat_id, session)
+                        return
+                        
                 await self.bot.send_message(
                     event.chat_id,
-                    f"⚠️ Auto-finalizing previous session: `{active.id}`\n"
-                    f"   ({active.audio_count} audio(s))",
+                    "❌ No session found to retry transcription.",
+                )
+        elif retry_action == "send_message":
+            # Generic retry - just acknowledge
+            await self.bot.send_message(
+                event.chat_id,
+                "✅ Ready. Please try your action again.",
+            )
+        elif retry_action == "last_action":
+            # Generic retry - prompt user to repeat
+            await self.bot.send_message(
+                event.chat_id,
+                "🔄 Please try your last action again.",
+            )
+        else:
+            logger.warning(f"Unknown retry action: {retry_action}")
+            await self.bot.send_message(
+                event.chat_id,
+                "🔄 Please try again.",
+            )
+
+    async def _cmd_start(self, event: TelegramEvent) -> None:
+        """Handle /start command - create new session."""
+        from src.lib.messages import WELCOME_MESSAGE, WELCOME_MESSAGE_SIMPLIFIED
+        
+        try:
+            # T080: Check if this is a first-time user (no session history)
+            all_sessions = self.session_manager.list_sessions()
+            is_first_time = len(all_sessions) == 0
+            
+            # Check for existing active session
+            active = self.session_manager.get_active_session()
+            if active and active.audio_count > 0:
+                # T062: Show confirmation dialog for session conflict
+                context = ConfirmationContext(
+                    confirmation_type=ConfirmationType.SESSION_CONFLICT,
+                    context_data={
+                        "message": f"Você tem uma sessão ativa com {active.audio_count} áudio(s).\nO que deseja fazer?",
+                        "session_id": active.id,
+                    },
+                    options=[
+                        ConfirmationOption(
+                            label="Finalizar e Transcrever",
+                            callback_data="confirm:session_conflict:finalize"
+                        ),
+                        ConfirmationOption(
+                            label="Iniciar Nova (descartar)",
+                            callback_data="confirm:session_conflict:new"
+                        ),
+                        ConfirmationOption(
+                            label="Continuar Sessão Atual",
+                            callback_data="confirm:session_conflict:return"
+                        ),
+                    ],
+                )
+                
+                # Use UIService to send confirmation dialog
+                if self.ui_service:
+                    await self.ui_service.send_confirmation_dialog(
+                        chat_id=event.chat_id,
+                        context=context,
+                    )
+                else:
+                    # Fallback: use keyboard directly
+                    keyboard = self.ui_service.build_keyboard(KeyboardType.SESSION_CONFLICT)
+                    await self.bot.send_message(
+                        event.chat_id,
+                        f"⚠️ *Sessão Ativa*\n\n"
+                        f"Você tem uma sessão com {active.audio_count} áudio(s).\n"
+                        f"O que deseja fazer?",
+                        parse_mode="Markdown",
+                        reply_markup=keyboard,
+                    )
+                return
+
+            # No active session or empty session - create new
+            if active and active.audio_count == 0:
+                # Silent cleanup of empty session
+                try:
+                    self.session_manager.transition_state(active.id, SessionState.ERROR)
+                except Exception:
+                    pass
+
+            # T080: Show welcome message for first-time users
+            if is_first_time:
+                welcome_msg = WELCOME_MESSAGE_SIMPLIFIED if self._simplified_ui else WELCOME_MESSAGE
+                await self.bot.send_message(
+                    event.chat_id,
+                    welcome_msg,
                     parse_mode="Markdown",
                 )
+                return  # Don't create session automatically - let user send voice
 
             # Create new session
             session = self.session_manager.create_session(chat_id=event.chat_id)
@@ -400,6 +683,7 @@ class VoiceOrchestrator:
         """
         Run transcription for all audio files in a session.
 
+        Uses ProgressReporter for real-time progress feedback (T044).
         Updates transcription status for each audio file and writes
         transcript files to session/transcripts/ folder.
         """
@@ -424,12 +708,39 @@ class VoiceOrchestrator:
         success_count = 0
         error_count = 0
 
-        for i, audio_entry in enumerate(session.audio_entries, 1):
-            # Send progress notification
-            await self.bot.send_message(
-                chat_id,
-                f"🎯 Transcribing audio {i}/{total}...",
+        # Calculate total audio duration for ETA estimation
+        audio_minutes = sum(
+            (entry.duration_seconds or 0) / 60.0 
+            for entry in session.audio_entries
+        )
+
+        # Initialize ProgressReporter (T044)
+        progress_reporter: ProgressReporter | None = None
+        operation_id: str | None = None
+        
+        if self.ui_service:
+            progress_reporter = ProgressReporter(ui_service=self.ui_service)
+            operation_id = await progress_reporter.start_operation(
+                operation_type=OperationType.TRANSCRIPTION,
+                total_steps=total,
+                chat_id=chat_id,
+                audio_minutes=audio_minutes,
             )
+
+        for i, audio_entry in enumerate(session.audio_entries, 1):
+            # Update progress with ProgressReporter
+            if progress_reporter and operation_id:
+                await progress_reporter.update_progress(
+                    operation_id,
+                    current_step=i,
+                    step_description=f"Transcrevendo áudio {i} de {total}...",
+                )
+            else:
+                # Fallback: Send progress notification via bot
+                await self.bot.send_message(
+                    chat_id,
+                    f"🎯 Transcribing audio {i}/{total}...",
+                )
 
             audio_path = audio_dir / audio_entry.local_filename
             transcript_filename = f"{audio_entry.sequence:03d}_audio.txt"
@@ -522,6 +833,13 @@ class VoiceOrchestrator:
 
         # Transition to TRANSCRIBED
         self.session_manager.transition_state(session.id, SessionState.TRANSCRIBED)
+
+        # Complete progress tracking
+        if progress_reporter and operation_id:
+            await progress_reporter.complete_operation(
+                operation_id, 
+                success=(error_count == 0),
+            )
 
         # Send completion message
         status_emoji = "✅" if error_count == 0 else "⚠️"
@@ -1049,6 +1367,62 @@ class VoiceOrchestrator:
         )
 
         logger.info(f"Resolved '{reference}' to session {session.id} via {match.match_type.value}")
+
+    async def _cmd_preferences(self, event: TelegramEvent) -> None:
+        """Handle /preferences [simplified] - toggle UI preferences.
+        
+        T079: Add simplified_ui preference toggle.
+        
+        Usage:
+            /preferences          - Show current preferences
+            /preferences simple   - Enable simplified UI (no emojis)
+            /preferences normal   - Disable simplified UI (with emojis)
+            /preferences toggle   - Toggle simplified UI
+        """
+        args = (event.command_args or "").strip().lower()
+        
+        if args in ("simple", "simplified"):
+            self._simplified_ui = True
+            if self.ui_service:
+                self.ui_service.simplified = True
+            await self.bot.send_message(
+                event.chat_id,
+                "✓ Interface simplificada ativada.\n"
+                "Emojis removidos, texto mais claro.",
+            )
+        elif args in ("normal", "default"):
+            self._simplified_ui = False
+            if self.ui_service:
+                self.ui_service.simplified = False
+            await self.bot.send_message(
+                event.chat_id,
+                "✅ Interface normal ativada.\n"
+                "Emojis e formatação completa.",
+            )
+        elif args in ("toggle", "t"):
+            self._simplified_ui = not self._simplified_ui
+            if self.ui_service:
+                self.ui_service.simplified = self._simplified_ui
+            mode = "simplificada" if self._simplified_ui else "normal"
+            await self.bot.send_message(
+                event.chat_id,
+                f"🔄 Interface alterada para: {mode}",
+            )
+        else:
+            # Show current preferences
+            mode = "simplificada" if self._simplified_ui else "normal"
+            await self.bot.send_message(
+                event.chat_id,
+                f"⚙️ **Preferências Atuais**\n\n"
+                f"Interface: {mode}\n\n"
+                f"**Comandos:**\n"
+                f"`/preferences simple` - Ativar modo simplificado\n"
+                f"`/preferences normal` - Ativar modo normal\n"
+                f"`/preferences toggle` - Alternar modo",
+                parse_mode="Markdown",
+            )
+        
+        logger.debug(f"Preferences updated: simplified_ui={self._simplified_ui}")
 
     async def _show_ambiguous_candidates(
         self,

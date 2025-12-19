@@ -294,3 +294,39 @@ sessions/
 | `PROCESSING` | Downstream pipeline running |
 | `PROCESSED` | All processing complete |
 | `ERROR` | Unrecoverable error occurred |
+
+## Interactive UI Features (005-telegram-ux-overhaul)
+
+The bot includes an enhanced interactive experience with inline keyboards:
+
+### Zero-Command Flow
+- Sessions auto-create when you send your first voice message
+- Inline keyboard buttons replace most text commands
+- **Finalize**, **Status**, and **Help** buttons available on all messages
+
+### Progress Feedback
+- Real-time progress updates during transcription
+- Visual progress bar: `▓▓▓▓▓░░░░░ 50%`
+- Step descriptions for each processing phase
+
+### Error Recovery
+- User-friendly error messages (no stack traces)
+- Recovery buttons for common issues
+- Retry option for transient failures
+
+### Session Protection
+- Confirmation dialog when starting new session with active audio
+- Options: Finalize current, Start new, or Return to active
+
+### Timeout Handling
+- Notification for long-running operations
+- Options to continue waiting or cancel
+
+### Preferences
+- `/preferences` - View/change UI settings
+- `/preferences simple` - Enable simplified UI (no emojis)
+- `/preferences normal` - Enable normal UI (with emojis)
+
+### Help System
+- Contextual help button in all keyboards
+- Help content varies based on current operation

@@ -14,6 +14,40 @@ if TYPE_CHECKING:
     from src.models.ui_state import KeyboardType
 
 # =============================================================================
+# Onboarding Messages (T080)
+# =============================================================================
+
+WELCOME_MESSAGE = """🎙️ **Bem-vindo ao Narrate!**
+
+Este bot transcreve suas mensagens de voz usando IA local.
+
+**Como usar:**
+1. 📤 Envie mensagens de voz
+2. ✅ Toque em "Finalizar" quando terminar
+3. 📝 Receba a transcrição completa
+
+**Comandos úteis:**
+• /start - Iniciar nova sessão
+• /status - Ver status atual
+• /help - Ajuda detalhada
+• /preferences - Configurações de interface
+
+💡 Envie uma mensagem de voz para começar!"""
+
+WELCOME_MESSAGE_SIMPLIFIED = """Bem-vindo ao Narrate!
+
+Este bot transcreve suas mensagens de voz.
+
+Como usar:
+1. Envie mensagens de voz
+2. Toque em Finalizar quando terminar
+3. Receba a transcrição completa
+
+Comandos: /start, /status, /help, /preferences
+
+Envie uma mensagem de voz para começar."""
+
+# =============================================================================
 # Session Messages
 # =============================================================================
 

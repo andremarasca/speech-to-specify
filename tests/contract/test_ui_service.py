@@ -581,6 +581,107 @@ class TestSendProgress(TestUIServiceProtocol):
         mock_message.edit_text.assert_called_once()
 
 
+class TestSendConfirmationDialog(TestUIServiceProtocol):
+    """Tests for UIService.send_confirmation_dialog() (US4: Session Conflict)."""
+
+    @pytest.mark.asyncio
+    async def test_send_confirmation_dialog_returns_message(self, mock_bot):
+        """Confirmation dialog should return a Message object."""
+        from src.services.telegram.ui_service import UIService
+        from src.models.ui_state import ConfirmationContext, ConfirmationType, ConfirmationOption
+
+        ui_service = UIService(bot=mock_bot)
+
+        context = ConfirmationContext(
+            confirmation_type=ConfirmationType.SESSION_CONFLICT,
+            context_data={"message": "Sessão ativa detectada. O que deseja fazer?"},
+            options=[
+                ConfirmationOption(label="Finalizar", callback_data="confirm:session_conflict:finalize"),
+                ConfirmationOption(label="Cancelar", callback_data="confirm:session_conflict:cancel"),
+            ],
+        )
+
+        result = await ui_service.send_confirmation_dialog(
+            chat_id=123456,
+            context=context,
+        )
+
+        assert result is not None
+        mock_bot.send_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_confirmation_dialog_has_confirmation_keyboard(self, mock_bot):
+        """Confirmation dialog should have keyboard with options."""
+        from src.services.telegram.ui_service import UIService
+        from src.models.ui_state import ConfirmationContext, ConfirmationType, ConfirmationOption
+
+        ui_service = UIService(bot=mock_bot)
+
+        context = ConfirmationContext(
+            confirmation_type=ConfirmationType.SESSION_CONFLICT,
+            context_data={"message": "Sessão ativa detectada."},
+            options=[
+                ConfirmationOption(label="Finalize", callback_data="confirm:session_conflict:finalize_new"),
+                ConfirmationOption(label="Continue", callback_data="confirm:session_conflict:continue"),
+            ],
+        )
+
+        await ui_service.send_confirmation_dialog(
+            chat_id=123456,
+            context=context,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        assert "reply_markup" in call_kwargs
+        keyboard = call_kwargs["reply_markup"]
+        assert hasattr(keyboard, "inline_keyboard")
+
+    @pytest.mark.asyncio
+    async def test_send_confirmation_dialog_displays_context_message(self, mock_bot):
+        """Confirmation dialog should display the context message."""
+        from src.services.telegram.ui_service import UIService
+        from src.models.ui_state import ConfirmationContext, ConfirmationType, ConfirmationOption
+
+        ui_service = UIService(bot=mock_bot)
+
+        context = ConfirmationContext(
+            confirmation_type=ConfirmationType.SESSION_CONFLICT,
+            context_data={"message": "Você tem 3 áudios na sessão atual."},
+            options=[],
+        )
+
+        await ui_service.send_confirmation_dialog(
+            chat_id=123456,
+            context=context,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        message_text = call_kwargs["text"]
+        assert "3 áudios" in message_text
+
+    @pytest.mark.asyncio
+    async def test_send_confirmation_dialog_uses_html_parse_mode(self, mock_bot):
+        """Confirmation dialog should use HTML parse mode."""
+        from src.services.telegram.ui_service import UIService
+        from src.models.ui_state import ConfirmationContext, ConfirmationType, ConfirmationOption
+
+        ui_service = UIService(bot=mock_bot)
+
+        context = ConfirmationContext(
+            confirmation_type=ConfirmationType.SESSION_CONFLICT,
+            context_data={"message": "Test"},
+            options=[],
+        )
+
+        await ui_service.send_confirmation_dialog(
+            chat_id=123456,
+            context=context,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        assert call_kwargs.get("parse_mode") == "HTML"
+
+
 class TestSendRecoveryPrompt(TestUIServiceProtocol):
     """Tests for UIService.send_recovery_prompt() (crash recovery)."""
 
@@ -655,3 +756,104 @@ class TestSendRecoveryPrompt(TestUIServiceProtocol):
                 all_callbacks.append(button.callback_data)
         
         assert any("discard" in cb.lower() for cb in all_callbacks)
+
+
+class TestSendTimeoutWarning(TestUIServiceProtocol):
+    """Tests for UIService.send_timeout_warning() (T071: US6 Timeout Handling)."""
+
+    @pytest.mark.asyncio
+    async def test_send_timeout_warning_returns_message(self, mock_bot):
+        """send_timeout_warning should return a Message object."""
+        from src.services.telegram.ui_service import UIService
+
+        ui_service = UIService(bot=mock_bot)
+
+        result = await ui_service.send_timeout_warning(
+            chat_id=123456,
+            operation_id="op_123",
+            elapsed_seconds=120.5,
+        )
+
+        assert result is not None
+        mock_bot.send_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_timeout_warning_has_continue_option(self, mock_bot):
+        """Timeout warning should have Continue Waiting option."""
+        from src.services.telegram.ui_service import UIService
+
+        ui_service = UIService(bot=mock_bot)
+
+        await ui_service.send_timeout_warning(
+            chat_id=123456,
+            operation_id="op_123",
+            elapsed_seconds=90.0,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        keyboard = call_kwargs["reply_markup"]
+
+        all_callbacks = []
+        for row in keyboard.inline_keyboard:
+            for button in row:
+                all_callbacks.append(button.callback_data)
+
+        assert any("continue" in cb for cb in all_callbacks)
+
+    @pytest.mark.asyncio
+    async def test_send_timeout_warning_has_cancel_option(self, mock_bot):
+        """Timeout warning should have Cancel option."""
+        from src.services.telegram.ui_service import UIService
+
+        ui_service = UIService(bot=mock_bot)
+
+        await ui_service.send_timeout_warning(
+            chat_id=123456,
+            operation_id="op_456",
+            elapsed_seconds=180.0,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        keyboard = call_kwargs["reply_markup"]
+
+        all_callbacks = []
+        for row in keyboard.inline_keyboard:
+            for button in row:
+                all_callbacks.append(button.callback_data)
+
+        assert any("cancel" in cb for cb in all_callbacks)
+
+    @pytest.mark.asyncio
+    async def test_send_timeout_warning_includes_elapsed_time(self, mock_bot):
+        """Timeout warning should display elapsed time."""
+        from src.services.telegram.ui_service import UIService
+
+        ui_service = UIService(bot=mock_bot)
+
+        await ui_service.send_timeout_warning(
+            chat_id=123456,
+            operation_id="op_789",
+            elapsed_seconds=65.0,  # 1m 5s
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        text = call_kwargs["text"]
+
+        # Should contain the time in some format (1m 5s or similar)
+        assert "1m" in text or "65" in text
+
+    @pytest.mark.asyncio
+    async def test_send_timeout_warning_uses_html_parse_mode(self, mock_bot):
+        """Timeout warning should use HTML parse mode."""
+        from src.services.telegram.ui_service import UIService
+
+        ui_service = UIService(bot=mock_bot)
+
+        await ui_service.send_timeout_warning(
+            chat_id=123456,
+            operation_id="op_test",
+            elapsed_seconds=30.0,
+        )
+
+        call_kwargs = mock_bot.send_message.call_args.kwargs
+        assert call_kwargs.get("parse_mode") == "HTML"

@@ -22,6 +22,8 @@ from src.models.ui_state import (
     ConfirmationContext,
 )
 from src.services.telegram.keyboards import build_keyboard, build_recovery_keyboard
+from src.services.presentation.error_handler import ErrorPresentationLayer, get_error_presentation_layer
+from src.lib.error_catalog import UserFacingError
 from src.lib.messages import (
     get_message,
     get_button_label,
@@ -152,6 +154,15 @@ class UIServiceProtocol(ABC):
         session: Session,
     ) -> Message:
         """Send recovery prompt for orphaned session."""
+        ...
+
+    @abstractmethod
+    async def send_error(
+        self,
+        chat_id: int,
+        error: UserFacingError,
+    ) -> Message:
+        """Send humanized error message with recovery buttons."""
         ...
 
     @abstractmethod
@@ -552,6 +563,87 @@ class UIService(UIServiceProtocol):
         )
         
         keyboard = build_recovery_keyboard(simplified=self.simplified)
+        
+        return await self._bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML",
+        )
+
+    async def send_timeout_warning(
+        self,
+        chat_id: int,
+        operation_id: str,
+        elapsed_seconds: float,
+    ) -> Message:
+        """Send timeout warning with continue/cancel options.
+        
+        Per T072 from 005-telegram-ux-overhaul.
+        
+        Args:
+            chat_id: Telegram chat ID
+            operation_id: ID of the timed-out operation
+            elapsed_seconds: How long the operation has been running
+            
+        Returns:
+            Timeout warning message
+        """
+        # Format elapsed time
+        minutes = int(elapsed_seconds // 60)
+        seconds = int(elapsed_seconds % 60)
+        
+        if minutes > 0:
+            elapsed_str = f"{minutes}m {seconds}s"
+        else:
+            elapsed_str = f"{seconds}s"
+        
+        if self.simplified:
+            text = f"Operação demorando: {elapsed_str}. Continuar ou cancelar?"
+        else:
+            text = (
+                f"⏳ <b>Operação demorada</b>\n\n"
+                f"A operação está levando mais tempo que o esperado.\n"
+                f"Tempo decorrido: {elapsed_str}\n\n"
+                f"Deseja continuar aguardando ou cancelar?"
+            )
+        
+        keyboard = self.build_keyboard(
+            KeyboardType.TIMEOUT,
+            context={"operation_id": operation_id},
+        )
+        
+        return await self._bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML",
+        )
+
+    async def send_error(
+        self,
+        chat_id: int,
+        error: UserFacingError,
+    ) -> Message:
+        """Send humanized error message with recovery buttons.
+        
+        Per T054 from 005-telegram-ux-overhaul.
+        
+        Uses ErrorPresentationLayer to format the error with
+        appropriate message text and inline keyboard buttons.
+        
+        Args:
+            chat_id: Telegram chat ID
+            error: UserFacingError to display
+            
+        Returns:
+            Sent message
+        """
+        error_layer = get_error_presentation_layer()
+        text, keyboard = error_layer.format_for_telegram(
+            error,
+            simplified=self.simplified,
+        )
         
         return await self._bot.send_message(
             chat_id=chat_id,
