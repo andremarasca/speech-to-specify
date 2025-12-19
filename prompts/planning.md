@@ -4,17 +4,17 @@ You are a Senior Software Architect and Systems Design Specialist. Your task is 
 # Contextual Inputs
 Below are the three source documents. They are delimited by specific tags. Process them thoroughly before generating the output.
 
-### 1. SPECIFICATION (Scope & MVP)
+### 1. SPECIFICATION (Defines user stories, priorities, MVP scope, and delivery sequencing)
 [[[SPECIFICATION_START]]]
 {{ specification_content }}
 [[[SPECIFICATION_END]]]
 
-### 2. CONSTITUTION (Rules & Quality Gates)
+### 2. CONSTITUTION (Defines non-negotiable execution rules, quality bars, and commit discipline)
 [[[CONSTITUTION_START]]]
 {{ constitution_content }}
 [[[CONSTITUTION_END]]]
 
-### 3. BRAINSTORM (Human Intent & Raw Ideas)
+### 3. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
 [[[BRAINSTORM_START]]]
 {{ input_content }}
 [[[BRAINSTORM_END]]]

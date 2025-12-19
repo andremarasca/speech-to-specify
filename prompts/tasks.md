@@ -25,17 +25,25 @@ The output must be concise, explicit, and directly actionable by an automated ta
 
 Use each document strictly for its role:
 
-- {{ planning_content }}
-  Defines technical stack, architectural limits, mandatory tooling, and structural constraints.
+### 1. PLAN (Defines technical stack, architectural limits, mandatory tooling, and structural constraints)
+[[[SPECIFICATION_START]]]
+{{ specification_content }}
+[[[SPECIFICATION_END]]]
 
-- {{ specification_content }}
-  Defines user stories, priorities, MVP scope, and delivery sequencing.
+### 2. SPECIFICATION (Defines user stories, priorities, MVP scope, and delivery sequencing)
+[[[SPECIFICATION_START]]]
+{{ specification_content }}
+[[[SPECIFICATION_END]]]
 
-- {{ constitution_content }}
-  Defines non-negotiable execution rules, quality bars, and commit discipline.
+### 3. CONSTITUTION (Defines non-negotiable execution rules, quality bars, and commit discipline)
+[[[CONSTITUTION_START]]]
+{{ constitution_content }}
+[[[CONSTITUTION_END]]]
 
-- {{ input_content }}
-  Contains a chaotic audio transcript resulting from a human brainstorm.
+### 4. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
+[[[BRAINSTORM_START]]]
+{{ input_content }}
+[[[BRAINSTORM_END]]]
 
 Do NOT summarize.
 Do NOT paraphrase.
