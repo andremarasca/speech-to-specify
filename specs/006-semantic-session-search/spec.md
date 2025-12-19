@@ -102,7 +102,7 @@ Se o usuário não digitar a consulta após tocar [Buscar], o sistema cancela au
 - **FR-005**: Sistema DEVE exibir nome inteligível da sessão e score de similaridade em cada botão
 - **FR-006**: Sistema DEVE restaurar sessão selecionada como contexto ativo
 - **FR-007**: Sistema DEVE apresentar botões de sessão ativa após restauração
-- **FR-008**: Sistema DEVE usar limiar configurável para similaridade mínima
+- **FR-008**: Sistema DEVE usar limiar configurável para similaridade mínima (default: 0.6)
 - **FR-009**: Sistema DEVE cancelar busca após timeout configurável (default: 60s)
 - **FR-010**: Sistema DEVE tratar sessões corrompidas com mensagem de erro clara
 
@@ -117,7 +117,7 @@ Se o usuário não digitar a consulta após tocar [Buscar], o sistema cancela au
 ### Measurable Outcomes
 
 - **SC-001**: Usuário completa fluxo [Buscar] → consulta → seleção → restauração usando apenas toques em botões (zero digitação de comandos)
-- **SC-002**: Sessão correta aparece entre os 5 primeiros resultados em >80% das buscas
+- **SC-002**: Sessão semanticamente relevante (contendo termos da consulta no transcript ou nome) aparece entre os 5 primeiros resultados em >80% das buscas
 - **SC-003**: Tempo total do fluxo (toque em [Buscar] até sessão restaurada) < 10 segundos
 - **SC-004**: Após restaurar sessão, envio de novo áudio funciona imediatamente sem erros
 - **SC-005**: Busca por consulta sem correspondência exibe mensagem clara em <2 segundos

@@ -88,7 +88,7 @@ tests/
 
 1. **Add conversational state tracking in `daemon.py`**:
    - Add `_awaiting_search_query: dict[int, bool]` to track chats awaiting search input
-   - Add timeout tracking `_search_query_timeout: dict[int, asyncio.Task]`
+   - Add timeout tracking `_search_timeout_tasks: dict[int, asyncio.Task]`
 
 2. **Implement `_handle_search_action()` in daemon.py**:
    - When user taps [Buscar]: send prompt message, set `_awaiting_search_query[chat_id] = True`

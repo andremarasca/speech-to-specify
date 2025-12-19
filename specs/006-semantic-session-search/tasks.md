@@ -48,7 +48,7 @@
 - [ ] T011 [US1] Implement _start_search_timeout() async method in src/cli/daemon.py (60s timeout with cancellation)
 - [ ] T012 [US1] Add text interception in handle_event() to check _awaiting_search_query before routing in src/cli/daemon.py
 - [ ] T013 [US1] Implement _process_search_query() method in src/cli/daemon.py (clear state, call SearchService, present results)
-- [ ] T014 [P] [US1] Implement build_search_results_keyboard() function in src/services/telegram/keyboards.py
+- [ ] T014 [P] [US1] Implement build_search_results_keyboard() function in src/services/telegram/keyboards.py with button format "📁 {session_name} ({score:.0%})"
 - [ ] T015 [P] [US1] Implement build_no_results_keyboard() function in src/services/telegram/keyboards.py
 - [ ] T016 [US1] Implement _present_search_results() method in src/cli/daemon.py (handle results vs no-results cases)
 
@@ -145,8 +145,9 @@
 
 - [ ] T039 [P] Handle empty query edge case (user sends whitespace) in _process_search_query() in src/cli/daemon.py
 - [ ] T040 [P] Add SEARCH_EMPTY_QUERY message to src/lib/messages.py
-- [ ] T041 Run quickstart.md validation manually
-- [ ] T042 Update specs/006-semantic-session-search/checklists/requirements.md with implementation status
+- [ ] T041 Verify search works during active transcription (independent operations per spec edge case)
+- [ ] T042 Run quickstart.md validation manually
+- [ ] T043 Update specs/006-semantic-session-search/checklists/requirements.md with implementation status
 
 ---
 
@@ -217,8 +218,8 @@ T035 → T036 → T037 → T038 (sequential - same file)
 | US4 - Corrupted | T025-T027 | P3 | |
 | US5 - Timeout | T028-T030 | P3 | |
 | Tests | T031-T038 | - | Recommended |
-| Polish | T039-T042 | - | |
+| Polish | T039-T043 | - | |
 
-**Total**: 42 tasks  
+**Total**: 43 tasks  
 **MVP scope**: T001-T020 (20 tasks)  
 **Parallel opportunities**: 15 tasks can run in parallel
