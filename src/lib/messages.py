@@ -51,19 +51,13 @@ Envie uma mensagem de voz para começar."""
 # Session Messages
 # =============================================================================
 
-SESSION_CREATED = """✅ <b>Sessão iniciada!</b>
+SESSION_CREATED = "✅ Sessão iniciada!\n\nEnvie mensagens de voz para gravar. Toque em 'Finalizar' quando terminar."
 
-📛 {session_name}
-🎙️ {audio_count} áudio(s) recebido(s)
+SESSION_CREATED_SIMPLIFIED = "Sessão iniciada. Envie mensagens de voz para gravar. Toque em Finalizar quando terminar."
 
-Envie mensagens de voz para gravar.
-Toque em <b>Finalizar</b> quando terminar."""
+AUDIO_RECEIVED = "🎙️ Áudio {sequence} recebido"
 
-SESSION_CREATED_SIMPLIFIED = "Sessão {session_name} iniciada. {audio_count} áudio(s). Envie mais ou toque Finalizar."
-
-AUDIO_RECEIVED = "🎙️ <b>Áudio {sequence}</b> recebido\n📛 Sessão: {session_name}"
-
-AUDIO_RECEIVED_SIMPLIFIED = "Áudio {sequence} recebido ({session_name})"
+AUDIO_RECEIVED_SIMPLIFIED = "Áudio {sequence} recebido"
 
 SESSION_FINALIZED = "✨ Sessão finalizada!\n\n{audio_count} áudio(s) processado(s)."
 

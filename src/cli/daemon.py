@@ -195,7 +195,6 @@ class VoiceOrchestrator:
             "get": self._cmd_get,
             "session": self._cmd_session,
             "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
-            "help": self._cmd_help,  # Contextual help with keyboard
         }
 
         handler = handlers.get(command)
@@ -243,12 +242,6 @@ class VoiceOrchestrator:
         if action == "finalize":
             # Same as /done command
             await self._cmd_finish(event)
-        elif action == "status":
-            # Same as /status command
-            await self._cmd_status(event)
-        elif action == "help":
-            # Show contextual help
-            await self._show_contextual_help(event)
         elif action == "cancel":
             # Cancel active session without transcription
             active = self.session_manager.get_active_session()
@@ -277,68 +270,8 @@ class VoiceOrchestrator:
         elif action == "cancel_operation":
             # T076: User chose to cancel the long-running operation
             await self._handle_cancel_operation(event)
-        elif action == "view_full":
-            # Show full transcription
-            await self._cmd_transcripts(event)
-        elif action == "search":
-            # Prompt for search
-            await self.bot.send_message(
-                event.chat_id,
-                "🔍 Para buscar em sessões anteriores:\n"
-                "`/session <termo de busca>`",
-                parse_mode="Markdown",
-            )
-        elif action == "pipeline":
-            # Same as /process command
-            await self._cmd_process(event)
-        elif action == "dismiss" or action == "close" or action == "close_help":
-            # Delete the message when user clicks close
-            if event.message_id:
-                await self.bot.delete_message(event.chat_id, event.message_id)
-        elif action == "resume_session":
-            # Resume orphaned session - delegate to recover handler
-            await self._handle_recover_callback(event, "resume")
-        elif action == "finalize_orphan":
-            # Finalize orphaned session - delegate to recover handler
-            await self._handle_recover_callback(event, "finalize")
-        elif action == "discard_orphan":
-            # Discard orphaned session - delegate to recover handler
-            await self._handle_recover_callback(event, "discard")
         else:
             logger.warning(f"Unknown action callback: {action}")
-
-    async def _show_contextual_help(self, event: TelegramEvent) -> None:
-        """Show contextual help based on current state."""
-        from src.lib.messages import get_help_message
-        from src.models.ui_state import UIPreferences
-        
-        active = self.session_manager.get_active_session()
-        
-        if active:
-            if active.state == SessionState.COLLECTING:
-                context = "SESSION_ACTIVE"
-            elif active.state == SessionState.TRANSCRIBING:
-                context = "PROCESSING"
-            else:
-                context = "RESULTS"
-        else:
-            context = "SESSION_EMPTY"
-        
-        help_text = get_help_message(context, simplified=self._simplified_ui)
-        
-        if self.ui_service:
-            from src.models.ui_state import KeyboardType
-            await self.ui_service.send_contextual_help(
-                chat_id=event.chat_id,
-                context=KeyboardType[context] if context in ["SESSION_ACTIVE", "SESSION_EMPTY", "PROCESSING", "RESULTS"] else KeyboardType.SESSION_ACTIVE,
-                preferences=UIPreferences(simplified_ui=self._simplified_ui),
-            )
-        else:
-            await self.bot.send_message(
-                event.chat_id,
-                help_text,
-                parse_mode="Markdown",
-            )
 
     async def _handle_continue_wait(self, event: TelegramEvent) -> None:
         """Handle continue_wait callback - user wants to keep waiting.
@@ -393,8 +326,17 @@ class VoiceOrchestrator:
 
     async def _handle_help_callback(self, event: TelegramEvent, topic: str) -> None:
         """Handle help: callbacks - send contextual help."""
-        # Delegate to the centralized help handler
-        await self._show_contextual_help(event)
+        if self.ui_service:
+            await self.ui_service.send_contextual_help(
+                chat_id=event.chat_id,
+                topic=topic,
+            )
+        else:
+            # Fallback to basic help
+            await self.bot.send_message(
+                event.chat_id,
+                "❓ Use /help for available commands.",
+            )
 
     async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle recover: callbacks for crash recovery."""
@@ -595,56 +537,6 @@ class VoiceOrchestrator:
                 event.chat_id,
                 "🔄 Please try again.",
             )
-
-    async def _cmd_help(self, event: TelegramEvent) -> None:
-        """Handle /help command - show contextual help with inline keyboard."""
-        from src.services.telegram.keyboards import KeyboardType
-        
-        # Get current context
-        active_session = self.session_manager.get_active_session()
-        
-        if active_session:
-            # Session active - show session-specific help
-            help_text = (
-                "📖 *Ajuda - Sessão Ativa*\n\n"
-                f"Você tem uma sessão ativa com {active_session.audio_count} áudio(s).\n\n"
-                "*O que você pode fazer:*\n"
-                "• Envie mensagens de voz para adicionar áudio\n"
-                "• Use os botões abaixo para navegar\n\n"
-                "*Dicas:*\n"
-                "• Envie vários áudios antes de finalizar\n"
-                "• A transcrição é feita automaticamente ao finalizar"
-            )
-            if self.ui_service:
-                keyboard = self.ui_service.build_keyboard(KeyboardType.SESSION_ACTIVE)
-            else:
-                keyboard = None
-        else:
-            # No session - show getting started help
-            help_text = (
-                "📖 *Ajuda - Início*\n\n"
-                "*Como começar:*\n"
-                "Basta enviar uma mensagem de voz! Uma sessão será criada automaticamente.\n\n"
-                "*Comandos disponíveis:*\n"
-                "• /status - Ver status atual\n"
-                "• /help - Esta mensagem\n\n"
-                "*Fluxo típico:*\n"
-                "1️⃣ Envie mensagens de voz\n"
-                "2️⃣ Clique em 'Finalizar'\n"
-                "3️⃣ Aguarde a transcrição\n"
-                "4️⃣ Acesse os resultados"
-            )
-            if self.ui_service:
-                keyboard = self.ui_service.build_keyboard(KeyboardType.HELP_MAIN)
-            else:
-                keyboard = None
-        
-        await self.bot.send_message(
-            event.chat_id,
-            help_text,
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
 
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
@@ -1005,38 +897,19 @@ class VoiceOrchestrator:
             name_display = f"📌 *{escape_markdown(target_session.intelligible_name)}*\n" if target_session.intelligible_name else ""
             is_active = target_session.state == SessionState.COLLECTING
             
-            # Build keyboard based on session state
-            if self.ui_service:
-                if is_active:
-                    keyboard = self.ui_service.build_keyboard(KeyboardType.SESSION_ACTIVE)
-                else:
-                    keyboard = self.ui_service.build_keyboard(KeyboardType.RESULTS)
-                
-                await self.bot.send_message(
-                    event.chat_id,
-                    f"📊 *{'Active ' if is_active else ''}Session*\n\n"
-                    f"{name_display}"
-                    f"🆔 Session: `{target_session.id}`\n"
-                    f"📁 Status: {target_session.state.value}\n"
-                    f"🎙️ Audio files: {target_session.audio_count}\n"
-                    f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
-                    parse_mode="Markdown",
-                    reply_markup=keyboard,
-                )
-            else:
-                await self.bot.send_message(
-                    event.chat_id,
-                    f"📊 *{'Active ' if is_active else ''}Session*\n\n"
-                    f"{name_display}"
-                    f"🆔 Session: `{target_session.id}`\n"
-                    f"📁 Status: {target_session.state.value}\n"
-                    f"🎙️ Audio files: {target_session.audio_count}\n"
-                    f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
-                    f"*Available actions:*\n"
-                    + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
-                       if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
-                    parse_mode="Markdown",
-                )
+            await self.bot.send_message(
+                event.chat_id,
+                f"📊 *{'Active ' if is_active else ''}Session*\n\n"
+                f"{name_display}"
+                f"🆔 Session: `{target_session.id}`\n"
+                f"📁 Status: {target_session.state.value}\n"
+                f"🎙️ Audio files: {target_session.audio_count}\n"
+                f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
+                f"*Available actions:*\n"
+                + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
+                   if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
+                parse_mode="Markdown",
+            )
         else:
             # No active session - provide helpful clarification (US4)
             sessions = self.session_manager.list_sessions(limit=5)

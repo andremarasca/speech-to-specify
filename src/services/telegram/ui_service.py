@@ -256,13 +256,9 @@ class UIService(UIServiceProtocol):
             session_name=session_name,
         )
         
-        # Include keyboard so user always has action buttons available
-        keyboard = self.build_keyboard(KeyboardType.SESSION_ACTIVE)
-        
         return await self._bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_markup=keyboard,
             parse_mode="HTML",
         )
 
