@@ -40,7 +40,7 @@ Confirm this plan explicitamente aborda:
 - Configuração externa (nenhum hardcoding de valores operacionais; novos parâmetros surgem em env/config auditáveis)
 - Testabilidade nativa (cada teclado/callback/comando validado por testes automatizados, sem dependência de testes manuais)
 
-Gate status: ✅ Planned compliance via explicit command/callback maps, fallback messaging, and mandated pytest coverage; ✅ observability with structured warnings for invalid callbacks/busca falha; ✅ external config for tokens/limits; ⚠ performance goals/limits NEED CLARIFICATION (to be resolved in research).
+Gate status: ✅ Planned compliance via explicit command/callback maps, fallback messaging, and mandated pytest coverage; ✅ observability with structured warnings para callbacks/busca; ✅ external config para tokens/limites; ✅ performance goals/limits definidos (p95 comandos/callbacks 800ms, busca timeout 5s, page size 5).
 
 ## Project Structure
 

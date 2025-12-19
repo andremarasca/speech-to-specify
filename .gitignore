@@ -214,3 +214,8 @@ __marimo__/
 output/
 sessions/
 .local/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.env.*
