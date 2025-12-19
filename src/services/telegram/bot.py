@@ -86,6 +86,9 @@ class TelegramBotAdapter:
         self._app.add_handler(CommandHandler("list", self._handle_list))
         self._app.add_handler(CommandHandler("get", self._handle_get))
         self._app.add_handler(CommandHandler("help", self._handle_help))
+        self._app.add_handler(CommandHandler("preferences", self._handle_preferences))
+        self._app.add_handler(CommandHandler("search", self._handle_search))
+        self._app.add_handler(CommandHandler("session", self._handle_session))
 
         # Register voice message handler
         self._app.add_handler(MessageHandler(filters.VOICE, self._handle_voice))
@@ -237,6 +240,45 @@ class TelegramBotAdapter:
         event = TelegramEvent.command(
             chat_id=update.effective_chat.id,
             command="help",
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_preferences(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /preferences command - delegate to event handler."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="preferences",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /search command - delegate to event handler."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="search",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_session(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /session command - delegate to event handler."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="session",
+            args=args,
         )
         await self._dispatch_event(event)
 

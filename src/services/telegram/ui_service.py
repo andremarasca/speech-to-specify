@@ -200,6 +200,11 @@ class UIService(UIServiceProtocol):
         """Whether to use simplified UI (no emojis)."""
         return self._preferences.simplified_ui
 
+    @simplified.setter
+    def simplified(self, value: bool) -> None:
+        """Set simplified UI mode."""
+        self._preferences = UIPreferences(simplified_ui=value)
+
     async def send_session_created(
         self,
         chat_id: int,

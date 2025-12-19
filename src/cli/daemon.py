@@ -205,6 +205,7 @@ class VoiceOrchestrator:
         handlers = {
             "start": self._cmd_start,
             "finish": self._cmd_finish,
+            "done": self._cmd_finish,  # Alias for finish
             "status": self._cmd_status,
             "transcripts": self._cmd_transcripts,
             "process": self._cmd_process,
@@ -212,6 +213,8 @@ class VoiceOrchestrator:
             "get": self._cmd_get,
             "session": self._cmd_session,
             "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
+            "help": self._cmd_help,
+            "search": self._cmd_search,  # 006-semantic-session-search
         }
 
         handler = handlers.get(command)
@@ -251,6 +254,8 @@ class VoiceOrchestrator:
             await self._handle_nav_callback(event, callback_value)
         elif callback_action == "retry":
             await self._handle_retry_callback(event, callback_value)
+        elif callback_action == "page":
+            await self._handle_page_callback(event, callback_value)
         elif callback_action == "search":
             # 006-semantic-session-search: Handle search:select:{session_id} callbacks
             await self._handle_search_select_callback(event, callback_value)
@@ -296,6 +301,33 @@ class VoiceOrchestrator:
         elif action == "close":
             # 006-semantic-session-search: Close/dismiss search results (T023-T024)
             await self._handle_close_action(event)
+        elif action == "help":
+            # Show contextual help based on current state
+            await self._handle_help_action(event)
+        elif action == "status":
+            # Show session status (same as /status command)
+            await self._cmd_status(event)
+        elif action == "view_full":
+            # Show full transcripts (same as /transcripts command)
+            await self._cmd_transcripts(event)
+        elif action == "pipeline":
+            # Start downstream processing (same as /process command)
+            await self._cmd_process(event)
+        elif action == "close_help":
+            # Just acknowledge - help message stays visible
+            pass
+        elif action == "dismiss":
+            # Dismiss confirmation dialog
+            pass
+        elif action == "resume_session":
+            # Resume orphaned/interrupted session
+            await self._handle_resume_orphan(event)
+        elif action == "finalize_orphan":
+            # Finalize orphaned/interrupted session
+            await self._handle_finalize_orphan(event)
+        elif action == "discard_orphan":
+            # Discard orphaned/interrupted session
+            await self._handle_discard_orphan(event)
         else:
             logger.warning(f"Unknown action callback: {action}")
 
@@ -350,19 +382,133 @@ class VoiceOrchestrator:
                 "❌ Nenhuma operação em andamento para cancelar.",
             )
 
+    async def _handle_resume_orphan(self, event: TelegramEvent) -> None:
+        """Handle action:resume_session callback - resume orphaned session.
+        
+        Finds the most recent interrupted or orphaned session and resumes it.
+        """
+        # Find interrupted session
+        sessions = self.session_manager.list_sessions()
+        orphan = next(
+            (s for s in sessions if s.state == SessionState.INTERRUPTED),
+            None
+        )
+        
+        if not orphan:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Nenhuma sessão órfã encontrada.",
+            )
+            return
+        
+        try:
+            self.session_manager.transition_state(orphan.id, SessionState.COLLECTING)
+            await self.bot.send_message(
+                event.chat_id,
+                f"✅ Sessão retomada: `{orphan.id}`\n"
+                f"Continue enviando mensagens de voz.",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"Failed to resume orphan session: {e}")
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Erro ao retomar sessão: {e}",
+            )
+
+    async def _handle_finalize_orphan(self, event: TelegramEvent) -> None:
+        """Handle action:finalize_orphan callback - finalize orphaned session.
+        
+        Finds the most recent interrupted session and finalizes it for transcription.
+        """
+        # Find interrupted session
+        sessions = self.session_manager.list_sessions()
+        orphan = next(
+            (s for s in sessions if s.state == SessionState.INTERRUPTED),
+            None
+        )
+        
+        if not orphan:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Nenhuma sessão órfã encontrada.",
+            )
+            return
+        
+        try:
+            # First transition to COLLECTING to allow finalization
+            self.session_manager.transition_state(orphan.id, SessionState.COLLECTING)
+            session = self.session_manager.finalize_session(orphan.id)
+            await self._run_transcription(event.chat_id, session)
+        except Exception as e:
+            logger.error(f"Failed to finalize orphan session: {e}")
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Erro ao finalizar sessão: {e}",
+            )
+
+    async def _handle_discard_orphan(self, event: TelegramEvent) -> None:
+        """Handle action:discard_orphan callback - discard orphaned session.
+        
+        Finds the most recent interrupted session and marks it as error.
+        """
+        # Find interrupted session
+        sessions = self.session_manager.list_sessions()
+        orphan = next(
+            (s for s in sessions if s.state == SessionState.INTERRUPTED),
+            None
+        )
+        
+        if not orphan:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Nenhuma sessão órfã encontrada.",
+            )
+            return
+        
+        try:
+            self.session_manager.transition_state(orphan.id, SessionState.ERROR)
+            await self.bot.send_message(
+                event.chat_id,
+                f"🗑️ Sessão descartada: `{orphan.id}`",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"Failed to discard orphan session: {e}")
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Erro ao descartar sessão: {e}",
+            )
+
     async def _handle_help_callback(self, event: TelegramEvent, topic: str) -> None:
-        """Handle help: callbacks - send contextual help."""
+        """Handle help: callbacks - send contextual help.
+        
+        Maps topic string to KeyboardType for UI service.
+        """
+        from src.models.ui_state import KeyboardType, UIPreferences
+        
+        # Map topic strings to KeyboardType
+        topic_map = {
+            "session": KeyboardType.SESSION_ACTIVE,
+            "empty": KeyboardType.SESSION_EMPTY,
+            "processing": KeyboardType.PROCESSING,
+            "results": KeyboardType.RESULTS,
+            "error": KeyboardType.ERROR_RECOVERY,
+            "default": KeyboardType.HELP_CONTEXT,
+        }
+        
+        context = topic_map.get(topic.lower(), KeyboardType.HELP_CONTEXT)
+        
         if self.ui_service:
+            preferences = UIPreferences(simplified_ui=self._simplified_ui)
             await self.ui_service.send_contextual_help(
                 chat_id=event.chat_id,
-                topic=topic,
+                context=context,
+                preferences=preferences,
             )
         else:
             # Fallback to basic help
-            await self.bot.send_message(
-                event.chat_id,
-                "❓ Use /help for available commands.",
-            )
+            await self._cmd_help(event)
 
     async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle recover: callbacks for crash recovery."""
@@ -502,6 +648,27 @@ class VoiceOrchestrator:
         # which would update the message in place
         logger.debug(f"Navigation callback: {value}")
         # TODO: Implement pagination state management if needed
+
+    async def _handle_page_callback(self, event: TelegramEvent, value: str) -> None:
+        """Handle page: callbacks for pagination navigation.
+        
+        Args:
+            event: Telegram event
+            value: Page number or "current"
+        """
+        logger.debug(f"Page callback: {value}")
+        
+        if value == "current":
+            # User clicked on page indicator - no action needed
+            pass
+        else:
+            try:
+                page = int(value)
+                # TODO: Update paginated content with new page
+                # This requires storing pagination state per chat
+                logger.debug(f"Navigate to page {page}")
+            except ValueError:
+                logger.warning(f"Invalid page number: {value}")
 
     async def _handle_retry_callback(self, event: TelegramEvent, retry_action: str) -> None:
         """Handle retry: callbacks for error recovery.
@@ -857,6 +1024,14 @@ class VoiceOrchestrator:
         
         # Simply acknowledge - message will be dismissed by Telegram
         logger.debug(f"Search closed for chat_id={chat_id}")
+
+    async def _handle_help_action(self, event: TelegramEvent) -> None:
+        """Handle action:help callback - show contextual help.
+        
+        Shows help message based on current session state.
+        Reuses _cmd_help for consistency.
+        """
+        await self._cmd_help(event)
 
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
@@ -1743,6 +1918,67 @@ class VoiceOrchestrator:
             )
         
         logger.debug(f"Preferences updated: simplified_ui={self._simplified_ui}")
+
+    async def _cmd_help(self, event: TelegramEvent) -> None:
+        """Handle /help command - show full help text with all commands.
+        
+        Lists all available commands and usage instructions.
+        """
+        help_text = """📖 **Ajuda do Narrate Bot**
+
+**Comandos Disponíveis:**
+
+📝 **Sessões de Gravação:**
+• /start - Iniciar nova sessão
+• /done ou /finish - Finalizar sessão e transcrever
+• /status - Ver status da sessão atual
+
+📂 **Gestão de Sessões:**
+• /list - Listar todas as sessões
+• /get <id> - Obter sessão específica
+• /session <id> - Carregar sessão por ID ou nome
+• /search - Buscar sessões por conteúdo
+
+📋 **Resultados:**
+• /transcripts - Ver transcrições completas
+• /process - Iniciar pipeline de processamento
+
+⚙️ **Configurações:**
+• /preferences - Configurar interface (simplificada/normal)
+
+**Como Usar:**
+1. 🎙️ Envie mensagens de voz
+2. ✅ Use /done para finalizar
+3. 📝 Receba a transcrição
+
+**Dicas:**
+• Você pode enviar múltiplos áudios antes de finalizar
+• Use /search para encontrar sessões antigas
+• Use /preferences simple para interface sem emojis"""
+
+        await self.bot.send_message(
+            event.chat_id,
+            help_text,
+            parse_mode="Markdown",
+        )
+
+    async def _cmd_search(self, event: TelegramEvent) -> None:
+        """Handle /search [query] command - search sessions by content.
+        
+        006-semantic-session-search: CLI entry point for search.
+        
+        Usage:
+            /search          - Initiate search flow (prompts for query)
+            /search <query>  - Search with provided query
+        """
+        query = (event.command_args or "").strip()
+        
+        if query:
+            # Direct search with provided query - use _process_search_query
+            await self._process_search_query(event, query)
+        else:
+            # Initiate search flow - prompt for query (same as action:search)
+            await self._handle_search_action(event)
 
     async def _show_ambiguous_candidates(
         self,
