@@ -318,7 +318,7 @@ Send voice messages to record audio during an active session."""
 
     # Message sending methods
 
-    async def send_message(self, chat_id: int, text: str, parse_mode: str = None) -> None:
+    async def send_message(self, chat_id: int, text: str, parse_mode: str = None, reply_markup=None) -> None:
         """
         Send text message to user.
 
@@ -326,6 +326,7 @@ Send voice messages to record audio during an active session."""
             chat_id: Target chat ID
             text: Message text
             parse_mode: Optional parse mode (Markdown, HTML)
+            reply_markup: Optional inline keyboard markup
         """
         if not self._app:
             raise RuntimeError("Bot not started")
@@ -334,7 +335,29 @@ Send voice messages to record audio during an active session."""
             chat_id=chat_id,
             text=text,
             parse_mode=parse_mode,
+            reply_markup=reply_markup,
         )
+
+    async def delete_message(self, chat_id: int, message_id: int) -> bool:
+        """
+        Delete a message.
+
+        Args:
+            chat_id: Chat ID where message is
+            message_id: ID of message to delete
+
+        Returns:
+            True if deleted successfully
+        """
+        if not self._app:
+            raise RuntimeError("Bot not started")
+
+        try:
+            await self._app.bot.delete_message(chat_id=chat_id, message_id=message_id)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to delete message {message_id}: {e}")
+            return False
 
     async def send_file(self, chat_id: int, file_path: Path, caption: str = None) -> None:
         """

@@ -242,6 +242,12 @@ class VoiceOrchestrator:
         if action == "finalize":
             # Same as /done command
             await self._cmd_finish(event)
+        elif action == "status":
+            # Same as /status command
+            await self._cmd_status(event)
+        elif action == "help":
+            # Show contextual help
+            await self._show_contextual_help(event)
         elif action == "cancel":
             # Cancel active session without transcription
             active = self.session_manager.get_active_session()
@@ -270,8 +276,68 @@ class VoiceOrchestrator:
         elif action == "cancel_operation":
             # T076: User chose to cancel the long-running operation
             await self._handle_cancel_operation(event)
+        elif action == "view_full":
+            # Show full transcription
+            await self._cmd_transcripts(event)
+        elif action == "search":
+            # Prompt for search
+            await self.bot.send_message(
+                event.chat_id,
+                "🔍 Para buscar em sessões anteriores:\n"
+                "`/session <termo de busca>`",
+                parse_mode="Markdown",
+            )
+        elif action == "pipeline":
+            # Same as /process command
+            await self._cmd_process(event)
+        elif action == "dismiss" or action == "close" or action == "close_help":
+            # Delete the message when user clicks close
+            if event.message_id:
+                await self.bot.delete_message(event.chat_id, event.message_id)
+        elif action == "resume_session":
+            # Resume orphaned session - delegate to recover handler
+            await self._handle_recover_callback(event, "resume")
+        elif action == "finalize_orphan":
+            # Finalize orphaned session - delegate to recover handler
+            await self._handle_recover_callback(event, "finalize")
+        elif action == "discard_orphan":
+            # Discard orphaned session - delegate to recover handler
+            await self._handle_recover_callback(event, "discard")
         else:
             logger.warning(f"Unknown action callback: {action}")
+
+    async def _show_contextual_help(self, event: TelegramEvent) -> None:
+        """Show contextual help based on current state."""
+        from src.lib.messages import get_help_message
+        from src.models.ui_state import UIPreferences
+        
+        active = self.session_manager.get_active_session()
+        
+        if active:
+            if active.state == SessionState.COLLECTING:
+                context = "SESSION_ACTIVE"
+            elif active.state == SessionState.TRANSCRIBING:
+                context = "PROCESSING"
+            else:
+                context = "RESULTS"
+        else:
+            context = "SESSION_EMPTY"
+        
+        help_text = get_help_message(context, simplified=self._simplified_ui)
+        
+        if self.ui_service:
+            from src.models.ui_state import KeyboardType
+            await self.ui_service.send_contextual_help(
+                chat_id=event.chat_id,
+                context=KeyboardType[context] if context in ["SESSION_ACTIVE", "SESSION_EMPTY", "PROCESSING", "RESULTS"] else KeyboardType.SESSION_ACTIVE,
+                preferences=UIPreferences(simplified_ui=self._simplified_ui),
+            )
+        else:
+            await self.bot.send_message(
+                event.chat_id,
+                help_text,
+                parse_mode="Markdown",
+            )
 
     async def _handle_continue_wait(self, event: TelegramEvent) -> None:
         """Handle continue_wait callback - user wants to keep waiting.
@@ -326,17 +392,8 @@ class VoiceOrchestrator:
 
     async def _handle_help_callback(self, event: TelegramEvent, topic: str) -> None:
         """Handle help: callbacks - send contextual help."""
-        if self.ui_service:
-            await self.ui_service.send_contextual_help(
-                chat_id=event.chat_id,
-                topic=topic,
-            )
-        else:
-            # Fallback to basic help
-            await self.bot.send_message(
-                event.chat_id,
-                "❓ Use /help for available commands.",
-            )
+        # Delegate to the centralized help handler
+        await self._show_contextual_help(event)
 
     async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle recover: callbacks for crash recovery."""
