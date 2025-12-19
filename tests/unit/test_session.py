@@ -4,6 +4,7 @@ These tests validate the session-related functionality including:
 - Session ID generation (timestamp format)
 - Session creation with folder structure
 - Auto-finalize behavior
+- NameSource and MatchType enums (003-auto-session-audio)
 """
 
 import pytest
@@ -14,7 +15,10 @@ import re
 from src.lib.timestamps import generate_id
 from src.models.session import (
     AudioEntry,
+    MatchType,
+    NameSource,
     Session,
+    SessionMatch,
     SessionState,
     TranscriptionStatus,
 )
@@ -358,3 +362,199 @@ class TestSessionProperties:
             chat_id=123,
         )
         assert not session.can_process
+
+
+class TestNameSourceEnum:
+    """Test NameSource enum for session name origins."""
+
+    def test_name_source_values(self):
+        """NameSource should have all expected values."""
+        assert NameSource.FALLBACK_TIMESTAMP == "FALLBACK_TIMESTAMP"
+        assert NameSource.TRANSCRIPTION == "TRANSCRIPTION"
+        assert NameSource.LLM_TITLE == "LLM_TITLE"
+        assert NameSource.USER_ASSIGNED == "USER_ASSIGNED"
+
+    def test_name_source_is_string_enum(self):
+        """NameSource values should be strings for JSON serialization."""
+        for source in NameSource:
+            assert isinstance(source.value, str)
+
+    def test_name_source_from_string(self):
+        """NameSource should be creatable from string."""
+        assert NameSource("FALLBACK_TIMESTAMP") == NameSource.FALLBACK_TIMESTAMP
+        assert NameSource("TRANSCRIPTION") == NameSource.TRANSCRIPTION
+
+    def test_name_source_priority_order(self):
+        """Document expected priority: FALLBACK < TRANSCRIPTION < LLM_TITLE < USER_ASSIGNED."""
+        # Priority list from lowest to highest
+        priority = [
+            NameSource.FALLBACK_TIMESTAMP,
+            NameSource.TRANSCRIPTION,
+            NameSource.LLM_TITLE,
+            NameSource.USER_ASSIGNED,
+        ]
+        # Verify all values are covered
+        assert set(priority) == set(NameSource)
+
+
+class TestMatchTypeEnum:
+    """Test MatchType enum for session reference matching."""
+
+    def test_match_type_values(self):
+        """MatchType should have all expected values."""
+        assert MatchType.EXACT_SUBSTRING == "EXACT_SUBSTRING"
+        assert MatchType.FUZZY_SUBSTRING == "FUZZY_SUBSTRING"
+        assert MatchType.SEMANTIC_SIMILARITY == "SEMANTIC_SIMILARITY"
+        assert MatchType.ACTIVE_CONTEXT == "ACTIVE_CONTEXT"
+        assert MatchType.AMBIGUOUS == "AMBIGUOUS"
+        assert MatchType.NOT_FOUND == "NOT_FOUND"
+
+    def test_match_type_is_string_enum(self):
+        """MatchType values should be strings for JSON serialization."""
+        for match_type in MatchType:
+            assert isinstance(match_type.value, str)
+
+    def test_match_type_from_string(self):
+        """MatchType should be creatable from string."""
+        assert MatchType("EXACT_SUBSTRING") == MatchType.EXACT_SUBSTRING
+        assert MatchType("NOT_FOUND") == MatchType.NOT_FOUND
+
+
+class TestSessionMatch:
+    """Test SessionMatch dataclass for reference resolution results."""
+
+    def test_session_match_creation(self):
+        """SessionMatch should be creatable with required fields."""
+        match = SessionMatch(
+            session_id="2025-12-18_14-30-00",
+            confidence=1.0,
+            match_type=MatchType.EXACT_SUBSTRING,
+        )
+        assert match.session_id == "2025-12-18_14-30-00"
+        assert match.confidence == 1.0
+        assert match.match_type == MatchType.EXACT_SUBSTRING
+        assert match.candidates == []  # Default empty list
+
+    def test_session_match_with_candidates(self):
+        """SessionMatch should support candidate list for ambiguous matches."""
+        match = SessionMatch(
+            session_id=None,
+            confidence=0.9,
+            match_type=MatchType.AMBIGUOUS,
+            candidates=["session-1", "session-2"],
+        )
+        assert match.session_id is None
+        assert match.match_type == MatchType.AMBIGUOUS
+        assert len(match.candidates) == 2
+
+    def test_session_match_not_found(self):
+        """SessionMatch for NOT_FOUND should have zero confidence."""
+        match = SessionMatch(
+            session_id=None,
+            confidence=0.0,
+            match_type=MatchType.NOT_FOUND,
+        )
+        assert match.session_id is None
+        assert match.confidence == 0.0
+        assert match.match_type == MatchType.NOT_FOUND
+
+
+class TestSessionNewFields:
+    """Test new Session fields for auto-session feature."""
+
+    def test_session_default_name_source(self):
+        """New session should have FALLBACK_TIMESTAMP as default."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.name_source == NameSource.FALLBACK_TIMESTAMP
+
+    def test_session_default_intelligible_name(self):
+        """New session should have empty intelligible_name by default."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.intelligible_name == ""
+
+    def test_session_default_embedding(self):
+        """New session should have None embedding by default."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+        )
+        assert session.embedding is None
+
+    def test_session_with_all_new_fields(self):
+        """Session should support all new fields."""
+        embedding = [0.1] * 384  # 384-dim vector
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            intelligible_name="Áudio de 18 de Dezembro",
+            name_source=NameSource.FALLBACK_TIMESTAMP,
+            embedding=embedding,
+        )
+        assert session.intelligible_name == "Áudio de 18 de Dezembro"
+        assert session.name_source == NameSource.FALLBACK_TIMESTAMP
+        assert len(session.embedding) == 384
+
+    def test_session_to_dict_includes_new_fields(self):
+        """Session.to_dict() should include new fields."""
+        session = Session(
+            id="2025-12-18_14-30-00",
+            state=SessionState.COLLECTING,
+            created_at=datetime.now(timezone.utc),
+            chat_id=123,
+            intelligible_name="Test Session",
+            name_source=NameSource.TRANSCRIPTION,
+        )
+        data = session.to_dict()
+
+        assert "intelligible_name" in data
+        assert data["intelligible_name"] == "Test Session"
+        assert "name_source" in data
+        assert data["name_source"] == "TRANSCRIPTION"
+        assert "embedding" in data
+
+    def test_session_from_dict_handles_new_fields(self):
+        """Session.from_dict() should handle new fields."""
+        data = {
+            "id": "2025-12-18_14-30-00",
+            "state": "COLLECTING",
+            "created_at": "2025-12-18T14:30:00",
+            "chat_id": 123,
+            "intelligible_name": "Test Session",
+            "name_source": "TRANSCRIPTION",
+            "embedding": [0.5] * 384,
+        }
+        session = Session.from_dict(data)
+
+        assert session.intelligible_name == "Test Session"
+        assert session.name_source == NameSource.TRANSCRIPTION
+        assert len(session.embedding) == 384
+
+    def test_session_from_dict_handles_missing_new_fields(self):
+        """Session.from_dict() should handle legacy data without new fields."""
+        # Simulating old session data without new fields
+        data = {
+            "id": "2025-12-18_14-30-00",
+            "state": "COLLECTING",
+            "created_at": "2025-12-18T14:30:00",
+            "chat_id": 123,
+        }
+        session = Session.from_dict(data)
+
+        # Should use defaults
+        assert session.intelligible_name == ""
+        assert session.name_source == NameSource.FALLBACK_TIMESTAMP
+        assert session.embedding is None

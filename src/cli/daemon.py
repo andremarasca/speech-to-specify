@@ -13,6 +13,7 @@ Usage:
 import argparse
 import asyncio
 import logging
+import re
 import signal
 import sys
 from datetime import datetime
@@ -25,7 +26,7 @@ from src.lib.config import (
     get_session_config,
 )
 from src.lib.timestamps import generate_timestamp
-from src.models.session import AudioEntry, ErrorEntry, SessionState, TranscriptionStatus
+from src.models.session import AudioEntry, ErrorEntry, MatchType, SessionState, TranscriptionStatus
 from src.services.session.storage import SessionStorage
 from src.services.session.manager import SessionManager, InvalidStateError
 from src.services.telegram.adapter import TelegramEvent
@@ -36,6 +37,25 @@ from src.services.session.processor import DownstreamProcessor, ProcessingError
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def escape_markdown(text: str) -> str:
+    """Escape special Markdown characters for Telegram.
+    
+    Args:
+        text: Text to escape
+        
+    Returns:
+        Text with special characters escaped
+    """
+    if not text:
+        return ""
+    # Escape characters that have special meaning in Telegram Markdown
+    # Order matters: escape backslash first
+    special_chars = ['\\', '*', '_', '`', '[', ']', '(', ')']
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
 
 
 class VoiceOrchestrator:
@@ -91,6 +111,7 @@ class VoiceOrchestrator:
             "process": self._cmd_process,
             "list": self._cmd_list,
             "get": self._cmd_get,
+            "session": self._cmd_session,
         }
 
         handler = handlers.get(command)
@@ -235,6 +256,25 @@ class VoiceOrchestrator:
                         TranscriptionStatus.SUCCESS,
                         transcript_filename,
                     )
+                    
+                    # Update session name from first successful transcription
+                    if audio_entry.sequence == 1 and result.text.strip():
+                        from src.services.session.name_generator import get_name_generator
+                        from src.models.session import NameSource
+                        
+                        name_generator = get_name_generator()
+                        transcript_name = name_generator.generate_from_transcript(result.text)
+                        
+                        if transcript_name:
+                            self.session_manager.update_session_name(
+                                session.id,
+                                transcript_name,
+                                NameSource.TRANSCRIPTION,
+                            )
+                            logger.info(
+                                f"Updated session name from transcription: '{transcript_name}'"
+                            )
+                    
                     success_count += 1
                     logger.info(
                         f"Transcribed audio #{audio_entry.sequence}: "
@@ -308,24 +348,58 @@ class VoiceOrchestrator:
         )
 
     async def _cmd_status(self, event: TelegramEvent) -> None:
-        """Handle /status command - show current session status."""
-        active = self.session_manager.get_active_session()
+        """Handle /status [session_ref] command - show session status.
+        
+        If no session reference provided, uses active session context (US4).
+        """
+        # Check if a session reference was provided
+        session_reference = event.command_args.strip() if event.command_args else ""
+        
+        target_session = None
+        
+        if session_reference:
+            # Resolve session reference
+            active = self.session_manager.get_active_session()
+            match = self.session_manager.resolve_session_reference(
+                session_reference,
+                active.id if active else None
+            )
+            
+            if match.match_type == MatchType.AMBIGUOUS:
+                await self._show_ambiguous_candidates(event.chat_id, session_reference, match.candidates)
+                return
+            elif match.match_type == MatchType.NOT_FOUND:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ No session matching '{session_reference}' found.\n\n"
+                    "💡 Use /list to see available sessions.",
+                )
+                return
+            
+            target_session = self.session_manager.storage.load(match.session_id)
+        else:
+            # No reference - use active session context
+            target_session = self.session_manager.get_active_session()
 
-        if active:
+        if target_session:
+            name_display = f"📌 *{target_session.intelligible_name}*\n" if target_session.intelligible_name else ""
+            is_active = target_session.state == SessionState.COLLECTING
+            
             await self.bot.send_message(
                 event.chat_id,
-                f"📊 *Active Session*\n\n"
-                f"🆔 Session: `{active.id}`\n"
-                f"📁 Status: {active.state.value}\n"
-                f"🎙️ Audio files: {active.audio_count}\n"
-                f"📅 Created: {active.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
+                f"📊 *{'Active ' if is_active else ''}Session*\n\n"
+                f"{name_display}"
+                f"🆔 Session: `{target_session.id}`\n"
+                f"📁 Status: {target_session.state.value}\n"
+                f"🎙️ Audio files: {target_session.audio_count}\n"
+                f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
                 f"*Available actions:*\n"
-                f"• Send voice messages to add audio\n"
-                f"• /done to finalize and transcribe",
+                + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
+                   if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
                 parse_mode="Markdown",
             )
         else:
-            # List recent sessions
+            # No active session - provide helpful clarification (US4)
             sessions = self.session_manager.list_sessions(limit=5)
 
             if sessions:
@@ -339,58 +413,79 @@ class VoiceOrchestrator:
                         SessionState.PROCESSED: "✅",
                         SessionState.ERROR: "❌",
                     }.get(s.state, "⚪")
+                    name = s.intelligible_name or s.id
                     session_lines.append(
-                        f"{status_emoji} `{s.id}` - {s.state.value} ({s.audio_count} audio)"
+                        f"{status_emoji} *{name}*\n   `{s.id}` ({s.audio_count} audio)"
                     )
 
                 await self.bot.send_message(
                     event.chat_id,
                     f"📊 *No Active Session*\n\n"
                     f"*Recent sessions:*\n" + "\n".join(session_lines) + "\n\n"
-                    f"Use /start to begin a new session.",
+                    f"💡 Send a voice message to start a new session,\n"
+                    f"or use /session <name> to select an existing one.",
                     parse_mode="Markdown",
                 )
             else:
                 await self.bot.send_message(
                     event.chat_id,
-                    "📊 No sessions found.\n\nUse /start to begin.",
+                    "📊 *No Active Session*\n\n"
+                    "No sessions found.\n\n"
+                    "💡 Send a voice message to start your first session!",
+                    parse_mode="Markdown",
                 )
 
     async def _cmd_transcripts(self, event: TelegramEvent) -> None:
-        """Handle /transcripts command - retrieve transcriptions."""
-        # Check if a specific session ID was provided
-        specified_session_id = event.payload.get("args")
+        """Handle /transcripts [session_ref] command - retrieve transcriptions.
+        
+        If no session reference provided, uses active session context.
+        """
+        # Check if a specific session reference was provided
+        session_reference = event.command_args.strip() if event.command_args else ""
 
         target_session = None
 
-        if specified_session_id:
-            # Try to get the specific session
-            target_session = self.session_manager.get_session(specified_session_id)
-            if not target_session:
+        if session_reference:
+            # Try to resolve session reference using natural language matching
+            active = self.session_manager.get_active_session()
+            match = self.session_manager.resolve_session_reference(
+                session_reference,
+                active.id if active else None
+            )
+
+            if match.match_type == MatchType.AMBIGUOUS:
+                await self._show_ambiguous_candidates(event.chat_id, session_reference, match.candidates)
+                return
+            elif match.match_type == MatchType.NOT_FOUND:
                 await self.bot.send_message(
                     event.chat_id,
-                    f"❌ Session `{specified_session_id}` not found.",
-                    parse_mode="Markdown",
+                    f"❌ No session matching '{session_reference}' found.\n\n"
+                    "💡 Use /list to see available sessions.",
                 )
                 return
+            
+            target_session = self.session_manager.storage.load(match.session_id)
         else:
-            # Find most recent TRANSCRIBED or later session
-            sessions = self.session_manager.list_sessions(limit=10)
-
-            for s in sessions:
-                if s.state in (
-                    SessionState.TRANSCRIBED,
-                    SessionState.PROCESSING,
-                    SessionState.PROCESSED,
-                ):
-                    target_session = s
-                    break
+            # No reference provided - use active session context (US4)
+            target_session = self.session_manager.get_active_session()
+            
+            if not target_session:
+                # Fall back to most recent transcribed session
+                sessions = self.session_manager.list_sessions(limit=10)
+                for s in sessions:
+                    if s.state in (
+                        SessionState.TRANSCRIBED,
+                        SessionState.PROCESSING,
+                        SessionState.PROCESSED,
+                    ):
+                        target_session = s
+                        break
 
         if not target_session:
             await self.bot.send_message(
                 event.chat_id,
-                "❌ No transcribed session found.\n\n"
-                "Complete a session with /done first.",
+                "❌ No active session found.\n\n"
+                "💡 Send a voice message to start, or use /session <name> to select one.",
             )
             return
 
@@ -624,7 +719,8 @@ class VoiceOrchestrator:
 
         await self.bot.send_message(
             event.chat_id,
-            f"📂 *Files in session `{target_session.id}`*\n"
+            f"📂 *{target_session.intelligible_name or target_session.id}*\n"
+            f"🆔 Session: `{target_session.id}`\n"
             f"Status: {target_session.state.value}\n\n" +
             "\n".join(file_lines) +
             "\n\n💡 Use /get <path> to download a file.",
@@ -700,83 +796,161 @@ class VoiceOrchestrator:
                 f"❌ Failed to send file: {e}",
             )
 
-    async def _handle_voice(self, event: TelegramEvent) -> None:
-        """Handle voice message - download and add to session."""
+    async def _cmd_session(self, event: TelegramEvent) -> None:
+        """Handle /session [reference] - find and activate session by natural language reference."""
+        reference = event.command_args.strip() if event.command_args else ""
+
+        # Get active session ID for context
         active = self.session_manager.get_active_session()
+        active_session_id = active.id if active else None
 
-        if not active:
+        # Resolve the reference using SessionMatcher
+        match = self.session_manager.resolve_session_reference(reference, active_session_id)
+
+        if match.match_type == MatchType.NOT_FOUND:
+            # No match found
             await self.bot.send_message(
                 event.chat_id,
-                "❌ No active session.\n\nUse /start to begin a session first.",
+                "❌ No matching session found.\n\n"
+                "💡 Try using /list to see available sessions, "
+                "or use a different search term.",
             )
             return
 
-        if not active.can_add_audio:
+        if match.match_type == MatchType.AMBIGUOUS:
+            # Multiple matches - present candidates
+            await self._show_ambiguous_candidates(event.chat_id, reference, match.candidates)
+            return
+
+        # Single match found - show session details
+        session = self.session_manager.storage.load(match.session_id)
+        if not session:
             await self.bot.send_message(
                 event.chat_id,
-                f"❌ Session `{active.id}` is {active.state.value}.\n"
-                f"Cannot add audio to finalized session.\n\n"
-                f"Use /start to begin a new session.",
-                parse_mode="Markdown",
+                "❌ Session not found (may have been deleted).",
             )
             return
 
+        # Format match type for display
+        match_type_labels = {
+            MatchType.EXACT_SUBSTRING: "exact match",
+            MatchType.FUZZY_SUBSTRING: "fuzzy match",
+            MatchType.SEMANTIC_SIMILARITY: "semantic match",
+            MatchType.ACTIVE_CONTEXT: "active session",
+        }
+        match_label = match_type_labels.get(match.match_type, str(match.match_type.value))
+
+        await self.bot.send_message(
+            event.chat_id,
+            f"✅ Found session ({match_label})\n\n"
+            f"📛 *{session.intelligible_name or session.id}*\n"
+            f"🆔 ID: `{session.id}`\n"
+            f"📅 Created: {session.created_at}\n"
+            f"📊 Status: {session.state.value}\n"
+            f"🎙️ Audios: {session.audio_count}\n\n"
+            f"💡 Use /list to see files, /transcripts to view transcripts.",
+            parse_mode="Markdown",
+        )
+
+        logger.info(f"Resolved '{reference}' to session {session.id} via {match.match_type.value}")
+
+    async def _show_ambiguous_candidates(
+        self,
+        chat_id: int,
+        reference: str,
+        candidates: list[str]
+    ) -> None:
+        """Show list of candidate sessions when match is ambiguous."""
+        lines = [f"⚠️ Multiple sessions match '{reference}':\n"]
+
+        for i, session_id in enumerate(candidates[:5], 1):  # Limit to 5
+            session = self.session_manager.storage.load(session_id)
+            if session:
+                name = session.intelligible_name or session.id
+                lines.append(f"{i}. 📂 *{name}*")
+                lines.append(f"   `{session.id}`\n")
+
+        lines.append("\n💡 Be more specific or use the session ID directly.")
+
+        await self.bot.send_message(
+            chat_id,
+            "\n".join(lines),
+            parse_mode="Markdown",
+        )
+
+    async def _handle_voice(self, event: TelegramEvent) -> None:
+        """Handle voice message - download and add to session (with auto-creation)."""
+        from src.lib.exceptions import AudioPersistenceError
+
+        # First, download the audio from Telegram
         try:
-            # Determine sequence number and filename
-            sequence = active.next_sequence
-            filename = f"{sequence:03d}_audio.ogg"
-            audio_dir = active.audio_path(self.session_manager.sessions_dir)
-            audio_dir.mkdir(exist_ok=True)
-            destination = audio_dir / filename
+            # Create temp directory for download
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp_file:
+                tmp_path = Path(tmp_file.name)
 
-            # Download voice file
+            # Download voice file to temp location
+            file_size = await self.bot.download_voice(event.file_id, tmp_path)
+            audio_data = tmp_path.read_bytes()
+            tmp_path.unlink()  # Clean up temp file
+
+        except Exception as e:
+            logger.error(f"Failed to download voice from Telegram: {e}")
             await self.bot.send_message(
                 event.chat_id,
-                f"⏳ Receiving audio #{sequence}...",
+                f"❌ Failed to download audio: {e}\n\nPlease try again.",
             )
+            return
 
-            file_size = await self.bot.download_voice(event.file_id, destination)
-
-            # Create audio entry
-            audio_entry = AudioEntry(
-                sequence=sequence,
-                received_at=generate_timestamp(),
+        # Use handle_audio_receipt which handles auto-session creation
+        try:
+            session, audio_entry = self.session_manager.handle_audio_receipt(
+                chat_id=event.chat_id,
+                audio_data=audio_data,
                 telegram_file_id=event.file_id,
-                local_filename=filename,
-                file_size_bytes=file_size,
                 duration_seconds=float(event.duration) if event.duration else None,
             )
 
-            # Add to session
-            self.session_manager.add_audio(active.id, audio_entry)
-
+            # Build response message
             duration_str = f"{event.duration}s" if event.duration else "unknown"
+            
+            # Check if this was a new session (first audio entry)
+            if len(session.audio_entries) == 1:
+                # New session was auto-created
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"✅ Session created: *{session.intelligible_name}*\n\n"
+                    f"Audio #{audio_entry.sequence} received\n"
+                    f"   📁 {audio_entry.local_filename}\n"
+                    f"   ⏱️ Duration: {duration_str}\n"
+                    f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
+                    f"Send more audio or /done when finished.",
+                    parse_mode="Markdown",
+                )
+            else:
+                # Added to existing session
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"✅ Audio #{audio_entry.sequence} received\n"
+                    f"   📁 {audio_entry.local_filename}\n"
+                    f"   ⏱️ Duration: {duration_str}\n"
+                    f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
+                )
+
+        except AudioPersistenceError as e:
+            logger.error(f"Critical: Failed to persist audio: {e}")
             await self.bot.send_message(
                 event.chat_id,
-                f"✅ Audio #{sequence} received\n"
-                f"   📁 {filename}\n"
-                f"   ⏱️ Duration: {duration_str}\n"
-                f"   💾 Size: {file_size:,} bytes",
+                f"❌ Critical error: Could not save audio.\n"
+                f"Please try again or check disk space.\n\n"
+                f"Error: {e}",
             )
-
-            logger.info(f"Added audio #{sequence} to session {active.id}")
 
         except Exception as e:
             logger.exception(f"Error handling voice message: {e}")
-
-            # Log error to session
-            error_entry = ErrorEntry(
-                timestamp=generate_timestamp(),
-                operation="download",
-                target=event.file_id,
-                message=str(e),
-                recoverable=True,
-            )
-            self.session_manager.add_error(active.id, error_entry)
-
             await self.bot.send_message(
                 event.chat_id,
-                f"❌ Failed to receive audio: {e}",
+                f"❌ Failed to process audio: {e}",
             )
 
 

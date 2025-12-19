@@ -168,6 +168,50 @@ class SessionStorage:
 
         return sessions[:limit]
 
+    def list_all_sessions(self) -> list[Session]:
+        """
+        List all sessions for index building.
+
+        Unlike list_sessions(), this returns ALL sessions without limit.
+        Used for rebuilding the session matcher index.
+
+        Returns:
+            List of all sessions, sorted by creation time (newest first)
+        """
+        return self.list_sessions(limit=10000)  # Effectively unlimited
+
+    def get_session_names(self) -> dict[str, str]:
+        """
+        Get mapping of session IDs to intelligible names.
+
+        Optimized for index building - only loads metadata.
+
+        Returns:
+            Dict mapping session_id to intelligible_name
+        """
+        names = {}
+
+        if not self.sessions_dir.exists():
+            return names
+
+        for entry in self.sessions_dir.iterdir():
+            if not entry.is_dir():
+                continue
+
+            metadata_path = entry / "metadata.json"
+            if not metadata_path.exists():
+                continue
+
+            try:
+                with open(metadata_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    names[entry.name] = data.get("intelligible_name", "")
+            except Exception:
+                logger.warning(f"Skipping session {entry.name} for index")
+                continue
+
+        return names
+
     def delete(self, session_id: str) -> bool:
         """
         Delete a session and its folder.

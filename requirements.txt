@@ -9,3 +9,6 @@ python-telegram-bot[all]>=22.0
 openai-whisper>=20231117
 torch>=2.1.0
 torchaudio>=2.1.0
+
+# Semantic matching for auto-session (003-auto-session-audio)
+sentence-transformers>=2.2.0

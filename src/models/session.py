@@ -46,6 +46,58 @@ class SessionState(str, Enum):
         return new_state in self.allowed_transitions().get(self, [])
 
 
+class NameSource(str, Enum):
+    """
+    Source of session's intelligible_name.
+
+    Transition rules:
+        FALLBACK_TIMESTAMP → TRANSCRIPTION (on first transcription complete)
+        TRANSCRIPTION → LLM_TITLE (on LLM title extraction)
+        Any → USER_ASSIGNED (on explicit user rename command)
+    """
+
+    FALLBACK_TIMESTAMP = "FALLBACK_TIMESTAMP"  # Auto-generated from creation time
+    TRANSCRIPTION = "TRANSCRIPTION"  # Extracted from first transcription
+    LLM_TITLE = "LLM_TITLE"  # Extracted by LLM processing
+    USER_ASSIGNED = "USER_ASSIGNED"  # Explicitly named by user
+
+
+class MatchType(str, Enum):
+    """
+    How a session reference was matched.
+
+    Used when resolving natural language session references.
+    """
+
+    EXACT_SUBSTRING = "EXACT_SUBSTRING"  # Name contains reference exactly
+    FUZZY_SUBSTRING = "FUZZY_SUBSTRING"  # Name contains reference with edits
+    SEMANTIC_SIMILARITY = "SEMANTIC_SIMILARITY"  # Embedding similarity match
+    ACTIVE_CONTEXT = "ACTIVE_CONTEXT"  # Implicit (no reference, used active)
+    AMBIGUOUS = "AMBIGUOUS"  # Multiple candidates, needs clarification
+    NOT_FOUND = "NOT_FOUND"  # No match found
+
+
+@dataclass
+class SessionMatch:
+    """
+    Result of session reference resolution.
+
+    Returned by SessionMatcher.resolve() to indicate how a natural
+    language reference was matched to a session.
+
+    Attributes:
+        session_id: Matched session ID, or None if not found/ambiguous
+        confidence: Match confidence in range [0.0, 1.0]
+        match_type: How the match was determined
+        candidates: Alternative session IDs if ambiguous (empty otherwise)
+    """
+
+    session_id: Optional[str]
+    confidence: float
+    match_type: MatchType
+    candidates: list[str] = field(default_factory=list)
+
+
 class TranscriptionStatus(str, Enum):
     """Status of transcription for an audio entry."""
 
@@ -164,6 +216,9 @@ class Session:
         state: Current session state
         created_at: When the session was created
         chat_id: Telegram chat ID associated with this session
+        intelligible_name: Human-readable session name (NEW)
+        name_source: Origin of the intelligible name (NEW)
+        embedding: Semantic vector for matching (NEW, optional, 384-dim)
         finalized_at: When the session was finalized (None if still collecting)
         audio_entries: List of captured audio messages
         errors: List of errors that occurred during processing
@@ -173,6 +228,9 @@ class Session:
     state: SessionState
     created_at: datetime
     chat_id: int
+    intelligible_name: str = ""
+    name_source: NameSource = NameSource.FALLBACK_TIMESTAMP
+    embedding: Optional[list[float]] = None
     finalized_at: Optional[datetime] = None
     audio_entries: list[AudioEntry] = field(default_factory=list)
     errors: list[ErrorEntry] = field(default_factory=list)
@@ -236,6 +294,9 @@ class Session:
             "state": self.state.value,
             "created_at": self.created_at.isoformat(),
             "chat_id": self.chat_id,
+            "intelligible_name": self.intelligible_name,
+            "name_source": self.name_source.value,
+            "embedding": self.embedding,
             "finalized_at": self.finalized_at.isoformat() if self.finalized_at else None,
             "audio_entries": [e.to_dict() for e in self.audio_entries],
             "errors": [e.to_dict() for e in self.errors],
@@ -249,6 +310,9 @@ class Session:
             state=SessionState(data["state"]),
             created_at=datetime.fromisoformat(data["created_at"]),
             chat_id=data["chat_id"],
+            intelligible_name=data.get("intelligible_name", ""),
+            name_source=NameSource(data.get("name_source", "FALLBACK_TIMESTAMP")),
+            embedding=data.get("embedding"),
             finalized_at=(
                 datetime.fromisoformat(data["finalized_at"])
                 if data.get("finalized_at")
