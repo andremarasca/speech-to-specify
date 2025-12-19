@@ -229,29 +229,16 @@ class TelegramBotAdapter:
         await self._dispatch_event(event)
 
     async def _handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /help command."""
+        """Handle /help command - delegate to event handler for contextual help."""
         if not await self._check_auth(update):
             return
 
-        help_text = """🎙️ *Voice Orchestrator Commands*
-
-*Session Management:*
-/start - Start new voice capture session
-/done or /finish - Finalize session and transcribe
-/status - Show current session status
-
-*Results:*
-/transcripts - Get transcription text
-/process - Send to downstream pipeline
-/list - List session files
-/get <file> - Download specific file
-
-*Help:*
-/help - Show this message
-
-Send voice messages to record audio during an active session."""
-
-        await update.message.reply_text(help_text, parse_mode="Markdown")
+        # Dispatch to event handler for contextual help with inline keyboard
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="help",
+        )
+        await self._dispatch_event(event)
 
     async def _handle_unknown(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle unknown commands."""

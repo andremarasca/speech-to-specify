@@ -83,9 +83,10 @@ class TestMessageFormatting:
     """Test message template formatting."""
 
     def test_audio_received_formatting(self):
-        """AUDIO_RECEIVED should format with sequence number."""
-        msg = messages.AUDIO_RECEIVED.format(sequence=5)
+        """AUDIO_RECEIVED should format with sequence number and session name."""
+        msg = messages.AUDIO_RECEIVED.format(sequence=5, session_name="test-session")
         assert "5" in msg
+        assert "test-session" in msg
 
     def test_session_finalized_formatting(self):
         """SESSION_FINALIZED should format with audio count."""
@@ -131,8 +132,9 @@ class TestGetMessageHelper:
 
     def test_get_message_with_formatting(self):
         """get_message should format the message with kwargs."""
-        msg = get_message("AUDIO_RECEIVED", sequence=3)
+        msg = get_message("AUDIO_RECEIVED", sequence=3, session_name="test-session")
         assert "3" in msg
+        assert "test-session" in msg
 
     def test_get_message_fallback_to_normal(self):
         """get_message should fall back to normal if simplified doesn't exist."""

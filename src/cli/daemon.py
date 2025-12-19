@@ -195,6 +195,7 @@ class VoiceOrchestrator:
             "get": self._cmd_get,
             "session": self._cmd_session,
             "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
+            "help": self._cmd_help,  # Contextual help with keyboard
         }
 
         handler = handlers.get(command)
@@ -595,6 +596,56 @@ class VoiceOrchestrator:
                 "🔄 Please try again.",
             )
 
+    async def _cmd_help(self, event: TelegramEvent) -> None:
+        """Handle /help command - show contextual help with inline keyboard."""
+        from src.services.telegram.keyboards import KeyboardType
+        
+        # Get current context
+        active_session = self.session_manager.get_active_session()
+        
+        if active_session:
+            # Session active - show session-specific help
+            help_text = (
+                "📖 *Ajuda - Sessão Ativa*\n\n"
+                f"Você tem uma sessão ativa com {active_session.audio_count} áudio(s).\n\n"
+                "*O que você pode fazer:*\n"
+                "• Envie mensagens de voz para adicionar áudio\n"
+                "• Use os botões abaixo para navegar\n\n"
+                "*Dicas:*\n"
+                "• Envie vários áudios antes de finalizar\n"
+                "• A transcrição é feita automaticamente ao finalizar"
+            )
+            if self.ui_service:
+                keyboard = self.ui_service.build_keyboard(KeyboardType.SESSION_ACTIVE)
+            else:
+                keyboard = None
+        else:
+            # No session - show getting started help
+            help_text = (
+                "📖 *Ajuda - Início*\n\n"
+                "*Como começar:*\n"
+                "Basta enviar uma mensagem de voz! Uma sessão será criada automaticamente.\n\n"
+                "*Comandos disponíveis:*\n"
+                "• /status - Ver status atual\n"
+                "• /help - Esta mensagem\n\n"
+                "*Fluxo típico:*\n"
+                "1️⃣ Envie mensagens de voz\n"
+                "2️⃣ Clique em 'Finalizar'\n"
+                "3️⃣ Aguarde a transcrição\n"
+                "4️⃣ Acesse os resultados"
+            )
+            if self.ui_service:
+                keyboard = self.ui_service.build_keyboard(KeyboardType.HELP_MAIN)
+            else:
+                keyboard = None
+        
+        await self.bot.send_message(
+            event.chat_id,
+            help_text,
+            parse_mode="Markdown",
+            reply_markup=keyboard,
+        )
+
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
         from src.lib.messages import WELCOME_MESSAGE, WELCOME_MESSAGE_SIMPLIFIED
@@ -954,19 +1005,38 @@ class VoiceOrchestrator:
             name_display = f"📌 *{escape_markdown(target_session.intelligible_name)}*\n" if target_session.intelligible_name else ""
             is_active = target_session.state == SessionState.COLLECTING
             
-            await self.bot.send_message(
-                event.chat_id,
-                f"📊 *{'Active ' if is_active else ''}Session*\n\n"
-                f"{name_display}"
-                f"🆔 Session: `{target_session.id}`\n"
-                f"📁 Status: {target_session.state.value}\n"
-                f"🎙️ Audio files: {target_session.audio_count}\n"
-                f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
-                f"*Available actions:*\n"
-                + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
-                   if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
-                parse_mode="Markdown",
-            )
+            # Build keyboard based on session state
+            if self.ui_service:
+                if is_active:
+                    keyboard = self.ui_service.build_keyboard(KeyboardType.SESSION_ACTIVE)
+                else:
+                    keyboard = self.ui_service.build_keyboard(KeyboardType.RESULTS)
+                
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"📊 *{'Active ' if is_active else ''}Session*\n\n"
+                    f"{name_display}"
+                    f"🆔 Session: `{target_session.id}`\n"
+                    f"📁 Status: {target_session.state.value}\n"
+                    f"🎙️ Audio files: {target_session.audio_count}\n"
+                    f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard,
+                )
+            else:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"📊 *{'Active ' if is_active else ''}Session*\n\n"
+                    f"{name_display}"
+                    f"🆔 Session: `{target_session.id}`\n"
+                    f"📁 Status: {target_session.state.value}\n"
+                    f"🎙️ Audio files: {target_session.audio_count}\n"
+                    f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
+                    f"*Available actions:*\n"
+                    + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
+                       if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
+                    parse_mode="Markdown",
+                )
         else:
             # No active session - provide helpful clarification (US4)
             sessions = self.session_manager.list_sessions(limit=5)
