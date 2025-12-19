@@ -166,6 +166,7 @@ TIMEOUT_WARNING_SIMPLIFIED = "Operação demorada ({elapsed_time}). Continuar ag
 HELP_MESSAGES: dict[str, str] = {
     "SESSION_ACTIVE": """📖 **Sessão Ativa**
 
+/help - Ver esta mensagens avançadas de ajuda.
 • Envie mensagens de voz para adicionar à sessão
 • Toque em **Finalizar** para processar os áudios
 • Toque em **Status** para ver informações da sessão
