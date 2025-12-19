@@ -104,7 +104,7 @@ Usuário retoma sessões órfãs após reinício do daemon, recebe ajuda context
 
 - **SC-001**: 100% dos comandos documentados respondem sem “Unknown command” ou erro técnico em testes automatizados e manuais guiados.
 - **SC-002**: 100% dos callbacks gerados pela UI são aceitos ou reconhecidos (incluindo no-ops), com zero “Unknown action” em logs durante suite de testes.
-- **SC-003**: Usuário consegue concluir fluxo de gravação → transcrição → acesso a transcrições em ≤3 minutos de interação humana típica, sem passos bloqueados.
-- **SC-004**: Busca semântica retorna resultados e permite abrir uma sessão relevante em ≤2 interações após a lista inicial em 95% dos casos de teste com dados de exemplo.
+- **SC-003**: Fluxo gravação → transcrição → acesso a transcrições conclui em ≤4 interações de usuário e p95 ≤ 3 minutos (medido com mocks/timestamps), sem passos bloqueados.
+- **SC-004**: `/search` retorna e abre sessão relevante em ≤2 interações após a lista inicial em 95% dos casos de teste; timeout de busca = 5s e page size = 5.
 - **SC-005**: Sessões órfãs detectadas são apresentadas com opções de recuperação e tratadas corretamente em 100% dos cenários simulados de reinício.
 - **SC-006**: Nenhum valor operacional sensível (tokens, limites, timeouts) permanece hardcoded após revisão; variáveis externas auditáveis são usadas em 100% dos pontos configuráveis.

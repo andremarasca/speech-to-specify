@@ -31,6 +31,7 @@
 - [ ] T005 [P] Adicionar testes de mapeamento de comandos para o TelegramBotAdapter/VoiceOrchestrator (tests/unit/test_telegram_event.py)
 - [ ] T006 [P] Adicionar teste de cobertura de prefixos de callback gerados por keyboards e roteados em `_handle_callback` (tests/unit/test_keyboards.py)
 - [ ] T007 Configurar job de CI local (comando) que roda suíte obrigatória de pytest (specs/001-telegram-contract-fix/quickstart.md, .github/workflows/ if existente ou docs)
+- [ ] T036 [P] Auditar/ajustar handlers/teclados/busca/recuperação para ler SEARCH_TIMEOUT, PAGINATION_PAGE_SIZE, HELP_FALLBACK_ENABLED, ORPHAN_RECOVERY_PROMPT etc. de env/config; adicionar pytest que falha se houver literais hardcoded
 
 **Checkpoint**: Fundamentos prontos; histórias podem iniciar.
 
@@ -73,6 +74,7 @@
 - [ ] T021 [US2] Implementar `_handle_search_select_callback` carregando sessão e apresentando resumo/ações (src/cli/daemon.py)
 - [ ] T022 [US2] Implementar `_handle_page_callback` com ack seguro, parsing int, warning em inválido, TODO de estado de página (src/cli/daemon.py)
 - [ ] T023 [US2] Garantir keyboards com callbacks `search:select:<id>` e `page:<n>/current` coerentes (src/services/telegram/keyboards.py)
+- [ ] T037 Simular reinício do daemon no meio da busca; reemitir ou substituir callbacks `search:*` / `page:*` pós-restart sem “Unknown action”; adicionar tests/integration/test_search_restart_flow.py
 
 **Checkpoint**: Busca semântica funcional e segura.
 
@@ -105,6 +107,9 @@
 - [ ] T033 [P] Revisar logs estruturados para callbacks/erros (campos chat_id, session_id, prefix) (src/cli/daemon.py)
 - [ ] T034 [P] Atualizar docs de contrato e quickstart após implementação (specs/001-telegram-contract-fix/contracts/telegram-contracts.md, quickstart.md)
 - [ ] T035 Rodar suíte completa de testes e corrigir regressões (pytest) (repo root)
+- [ ] T038 [P] Assertar em pytest logs estruturados para callbacks inválidos/busca falha (campos chat_id, session_id, prefix/error_code)
+- [ ] T039 [US1] Teste de aceitação: gravação→transcrição→transcrições completa em ≤4 interações e p95 ≤3m (mocks/timestamps) conforme SC-003
+- [ ] T040 [US2] Teste de aceitação: `/search` abre sessão relevante em ≤2 interações após a lista inicial em 95% dos casos; timeout 5s, page size 5 (SC-004)
 
 ---
 

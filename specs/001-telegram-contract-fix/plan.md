@@ -19,13 +19,13 @@ Corrigir a quebra de contrato entre o TelegramBotAdapter e o VoiceOrchestrator: 
 
 **Language/Version**: Python 3.x (asyncio)  
 **Primary Dependencies**: python-telegram-bot, pytest; domain services (session_manager, ui_service)  
-**Storage**: Filesystem sessions/transcripts (existing sessions dir); external pipeline/config (NEEDS CLARIFICATION for persistence specifics)  
+**Storage**: Filesystem sessions/transcripts (existing sessions dir); external pipeline/config (persistence remains existing domain, no new DB)  
 **Testing**: pytest (unit/integration outlined)  
 **Target Platform**: Linux/Windows host running Telegram bot daemon  
 **Project Type**: single  
-**Performance Goals**: NEEDS CLARIFICATION (latência p95 para comandos/callbacks, throughput de busca)  
-**Constraints**: NEEDS CLARIFICATION (limites de paginação, timeouts de busca/transcrição, memória)  
-**Scale/Scope**: Single bot instance; usuários simultâneos não especificados (NEEDS CLARIFICATION)
+**Performance Goals**: p95 comandos/callbacks: 800ms; busca timeout: 5s; page size: 5; throughput not a goal for MVP  
+**Constraints**: Limites: page size 5; busca timeout 5s; memória não crítica; throughput despriorizado  
+**Scale/Scope**: Single bot instance; usuários simultâneos não especificados (aceitável para MVP)
 
 ## Constitution Check
 
