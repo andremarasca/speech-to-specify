@@ -215,3 +215,4 @@ specs/
 # Project output (narrative pipeline executions)
 output/
 sessions/
+.local/
