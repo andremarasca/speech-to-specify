@@ -382,7 +382,7 @@ class VoiceOrchestrator:
             target_session = self.session_manager.get_active_session()
 
         if target_session:
-            name_display = f"📌 *{target_session.intelligible_name}*\n" if target_session.intelligible_name else ""
+            name_display = f"📌 *{escape_markdown(target_session.intelligible_name)}*\n" if target_session.intelligible_name else ""
             is_active = target_session.state == SessionState.COLLECTING
             
             await self.bot.send_message(
@@ -413,7 +413,7 @@ class VoiceOrchestrator:
                         SessionState.PROCESSED: "✅",
                         SessionState.ERROR: "❌",
                     }.get(s.state, "⚪")
-                    name = s.intelligible_name or s.id
+                    name = escape_markdown(s.intelligible_name) if s.intelligible_name else s.id
                     session_lines.append(
                         f"{status_emoji} *{name}*\n   `{s.id}` ({s.audio_count} audio)"
                     )
@@ -514,7 +514,7 @@ class VoiceOrchestrator:
         if len(full_text) <= 4000:
             await self.bot.send_message(
                 event.chat_id,
-                f"📝 *Transcripts for session `{target_session.id}`*\n\n{full_text}",
+                f"📝 *Transcripts for session `{target_session.id}`*\n\n{escape_markdown(full_text)}",
                 parse_mode="Markdown",
             )
         else:
@@ -715,11 +715,12 @@ class VoiceOrchestrator:
         file_lines = []
         for emoji, name, size in files:
             size_str = self._format_size(size)
-            file_lines.append(f"{emoji} `{name}` ({size_str})")
+            file_lines.append(f"{emoji} `{escape_markdown(name)}` ({size_str})")
 
+        session_name = escape_markdown(target_session.intelligible_name) if target_session.intelligible_name else target_session.id
         await self.bot.send_message(
             event.chat_id,
-            f"📂 *{target_session.intelligible_name or target_session.id}*\n"
+            f"📂 *{session_name}*\n"
             f"🆔 Session: `{target_session.id}`\n"
             f"Status: {target_session.state.value}\n\n" +
             "\n".join(file_lines) +
@@ -777,7 +778,7 @@ class VoiceOrchestrator:
         if not file_path.exists() or not file_path.is_file():
             await self.bot.send_message(
                 event.chat_id,
-                f"❌ File not found: `{filename}`\n\nUse /list to see available files.",
+                f"❌ File not found: `{escape_markdown(filename)}`\n\nUse /list to see available files.",
                 parse_mode="Markdown",
             )
             return
@@ -840,10 +841,11 @@ class VoiceOrchestrator:
         }
         match_label = match_type_labels.get(match.match_type, str(match.match_type.value))
 
+        session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
         await self.bot.send_message(
             event.chat_id,
             f"✅ Found session ({match_label})\n\n"
-            f"📛 *{session.intelligible_name or session.id}*\n"
+            f"📛 *{session_name}*\n"
             f"🆔 ID: `{session.id}`\n"
             f"📅 Created: {session.created_at}\n"
             f"📊 Status: {session.state.value}\n"
@@ -861,12 +863,12 @@ class VoiceOrchestrator:
         candidates: list[str]
     ) -> None:
         """Show list of candidate sessions when match is ambiguous."""
-        lines = [f"⚠️ Multiple sessions match '{reference}':\n"]
+        lines = [f"⚠️ Multiple sessions match '{escape_markdown(reference)}':\n"]
 
         for i, session_id in enumerate(candidates[:5], 1):  # Limit to 5
             session = self.session_manager.storage.load(session_id)
             if session:
-                name = session.intelligible_name or session.id
+                name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
                 lines.append(f"{i}. 📂 *{name}*")
                 lines.append(f"   `{session.id}`\n")
 
@@ -913,15 +915,17 @@ class VoiceOrchestrator:
 
             # Build response message
             duration_str = f"{event.duration}s" if event.duration else "unknown"
+            escaped_filename = escape_markdown(audio_entry.local_filename)
             
             # Check if this was a new session (first audio entry)
             if len(session.audio_entries) == 1:
                 # New session was auto-created
+                session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
                 await self.bot.send_message(
                     event.chat_id,
-                    f"✅ Session created: *{session.intelligible_name}*\n\n"
+                    f"✅ Session created: *{session_name}*\n\n"
                     f"Audio #{audio_entry.sequence} received\n"
-                    f"   📁 {audio_entry.local_filename}\n"
+                    f"   📁 {escaped_filename}\n"
                     f"   ⏱️ Duration: {duration_str}\n"
                     f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
                     f"Send more audio or /done when finished.",
@@ -932,7 +936,7 @@ class VoiceOrchestrator:
                 await self.bot.send_message(
                     event.chat_id,
                     f"✅ Audio #{audio_entry.sequence} received\n"
-                    f"   📁 {audio_entry.local_filename}\n"
+                    f"   📁 {escaped_filename}\n"
                     f"   ⏱️ Duration: {duration_str}\n"
                     f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
                 )

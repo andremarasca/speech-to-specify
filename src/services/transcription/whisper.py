@@ -46,6 +46,8 @@ class WhisperTranscriptionService(TranscriptionService):
         self.config = config
         self._model = None
         self._ready = False
+        # FP16 is only supported on CUDA, disable for CPU to avoid warning
+        self._use_fp16 = config.fp16 and config.device == "cuda"
 
     def is_ready(self) -> bool:
         """Check if the model is loaded and ready."""
@@ -73,7 +75,7 @@ class WhisperTranscriptionService(TranscriptionService):
                 logger.info(f"CUDA available: {torch.cuda.get_device_name(0)}")
 
             logger.info(f"Loading Whisper model: {self.config.model_name}")
-            logger.info(f"Device: {self.config.device}, FP16: {self.config.fp16}")
+            logger.info(f"Device: {self.config.device}, FP16: {self._use_fp16}")
 
             # Load model
             self._model = whisper.load_model(
@@ -125,7 +127,7 @@ class WhisperTranscriptionService(TranscriptionService):
             # Transcribe with Whisper
             result = self._model.transcribe(
                 str(audio_path),
-                fp16=self.config.fp16,
+                fp16=self._use_fp16,
                 language="en",  # Force English for small.en model
             )
 

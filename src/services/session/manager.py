@@ -28,6 +28,7 @@ from src.models.session import (
 from src.services.session.storage import SessionStorage, SessionStorageError
 from src.services.session.name_generator import get_name_generator
 from src.services.session.matcher import get_session_matcher
+from src.lib.embedding import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -450,6 +451,24 @@ class SessionManager:
         except Exception as e:
             logger.warning(f"Failed to remove from matcher index: {e}")
 
+    def _generate_embedding(self, text: str) -> Optional[list[float]]:
+        """Generate embedding vector for text using EmbeddingService.
+        
+        Args:
+            text: Text to embed (usually session name)
+            
+        Returns:
+            384-dimensional embedding vector, or None if generation fails
+        """
+        try:
+            embedding_service = get_embedding_service()
+            embedding = embedding_service.embed(text)
+            logger.debug(f"Generated embedding for: {text[:50]}...")
+            return embedding
+        except Exception as e:
+            logger.warning(f"Failed to generate embedding: {e}")
+            return None
+
     def handle_audio_receipt(
         self,
         chat_id: int,
@@ -569,9 +588,14 @@ class SessionManager:
             old_name = session.intelligible_name
             session.intelligible_name = new_name
             session.name_source = source
+            
+            # Generate embedding for semantic search (only for content-derived names)
+            if source in (NameSource.TRANSCRIPTION, NameSource.LLM_TITLE):
+                session.embedding = self._generate_embedding(new_name)
+            
             self.storage.save(session)
 
-            # Update SessionMatcher index with new name
+            # Update SessionMatcher index with new name and embedding
             self._update_matcher_index(session)
 
             logger.info(
