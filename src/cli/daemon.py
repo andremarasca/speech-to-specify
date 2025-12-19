@@ -24,6 +24,7 @@ from src.lib.config import (
     get_telegram_config,
     get_whisper_config,
     get_session_config,
+    get_search_config,
     UIConfig,
 )
 from src.lib.timestamps import generate_timestamp
@@ -39,6 +40,7 @@ from src.services.session.processor import DownstreamProcessor, ProcessingError
 from src.services.session.checkpoint import save_checkpoint
 from src.services.presentation.progress import ProgressReporter
 from src.services.presentation.error_handler import get_error_presentation_layer
+from src.services.search.engine import SearchService, DefaultSearchService
 from src.models.ui_state import (
     OperationType,
     ConfirmationContext,
@@ -89,15 +91,21 @@ class VoiceOrchestrator:
         transcription_service: TranscriptionService | None = None,
         downstream_processor: DownstreamProcessor | None = None,
         ui_service: Optional[UIService] = None,
+        search_service: SearchService | None = None,
     ):
         self.bot = bot
         self.session_manager = session_manager
         self.transcription_service = transcription_service
         self.downstream_processor = downstream_processor
         self.ui_service = ui_service
+        self.search_service = search_service
         self._chat_id: int = 0  # Will be set from config
         # T079: Simple in-memory preferences per daemon instance
         self._simplified_ui: bool = False
+        # 006-semantic-session-search: Conversational state for search flow
+        self._awaiting_search_query: dict[int, bool] = {}
+        self._search_timeout_tasks: dict[int, asyncio.Task] = {}
+        self._search_config = get_search_config()
 
     def set_chat_id(self, chat_id: int) -> None:
         """Set the authorized chat ID for sending messages."""
@@ -180,6 +188,15 @@ class VoiceOrchestrator:
                 event,
                 context,
             )
+        elif event.is_text:
+            # 006-semantic-session-search: Check if awaiting search query (T012)
+            if self._awaiting_search_query.get(event.chat_id):
+                context["search_query"] = event.text
+                await self._handle_with_error_presentation(
+                    self._process_search_query(event, event.text.strip()),
+                    event,
+                    context,
+                )
 
     async def _handle_command(self, event: TelegramEvent) -> None:
         """Route command to appropriate handler."""
@@ -234,6 +251,9 @@ class VoiceOrchestrator:
             await self._handle_nav_callback(event, callback_value)
         elif callback_action == "retry":
             await self._handle_retry_callback(event, callback_value)
+        elif callback_action == "search":
+            # 006-semantic-session-search: Handle search:select:{session_id} callbacks
+            await self._handle_search_select_callback(event, callback_value)
         else:
             logger.warning(f"Unknown callback action: {callback_action}")
 
@@ -270,6 +290,12 @@ class VoiceOrchestrator:
         elif action == "cancel_operation":
             # T076: User chose to cancel the long-running operation
             await self._handle_cancel_operation(event)
+        elif action == "search":
+            # 006-semantic-session-search: Initiate search flow (T009-T010)
+            await self._handle_search_action(event)
+        elif action == "close":
+            # 006-semantic-session-search: Close/dismiss search results (T023-T024)
+            await self._handle_close_action(event)
         else:
             logger.warning(f"Unknown action callback: {action}")
 
@@ -537,6 +563,300 @@ class VoiceOrchestrator:
                 event.chat_id,
                 "🔄 Please try again.",
             )
+
+    # =========================================================================
+    # Search Handlers (006-semantic-session-search)
+    # =========================================================================
+
+    async def _handle_search_action(self, event: TelegramEvent) -> None:
+        """Handle action:search callback - initiate search flow.
+        
+        Per T009 from 006-semantic-session-search.
+        
+        Sends search prompt and sets awaiting state for the chat.
+        """
+        from src.lib.messages import SEARCH_PROMPT, SEARCH_PROMPT_SIMPLIFIED
+        
+        chat_id = event.chat_id
+        
+        # Set awaiting state
+        self._awaiting_search_query[chat_id] = True
+        
+        # Send prompt message
+        prompt = SEARCH_PROMPT_SIMPLIFIED if self._simplified_ui else SEARCH_PROMPT
+        await self.bot.send_message(chat_id, prompt)
+        
+        # Start timeout task (T011)
+        await self._start_search_timeout(chat_id)
+        
+        logger.debug(f"Search flow initiated for chat_id={chat_id}")
+
+    async def _start_search_timeout(self, chat_id: int) -> None:
+        """Start timeout for search query input.
+        
+        Per T011 from 006-semantic-session-search.
+        
+        Cancels any existing timeout and starts a new one. After timeout,
+        clears awaiting state and sends cancellation message.
+        """
+        from src.lib.messages import SEARCH_TIMEOUT, SEARCH_TIMEOUT_SIMPLIFIED
+        
+        # Cancel existing timeout if any
+        if chat_id in self._search_timeout_tasks:
+            self._search_timeout_tasks[chat_id].cancel()
+            del self._search_timeout_tasks[chat_id]
+        
+        timeout_seconds = self._search_config.query_timeout_seconds
+        
+        async def timeout_handler():
+            try:
+                await asyncio.sleep(timeout_seconds)
+                # Check if still awaiting (might have been cleared)
+                if self._awaiting_search_query.get(chat_id):
+                    del self._awaiting_search_query[chat_id]
+                    
+                    # Send timeout message
+                    msg = SEARCH_TIMEOUT_SIMPLIFIED if self._simplified_ui else SEARCH_TIMEOUT
+                    await self.bot.send_message(chat_id, msg)
+                    
+                    logger.debug(f"Search timeout for chat_id={chat_id}")
+            except asyncio.CancelledError:
+                # Expected when query received or close pressed
+                pass
+            finally:
+                # Cleanup task reference
+                self._search_timeout_tasks.pop(chat_id, None)
+        
+        self._search_timeout_tasks[chat_id] = asyncio.create_task(timeout_handler())
+
+    async def _process_search_query(self, event: TelegramEvent, query: str) -> None:
+        """Process search query text from user.
+        
+        Per T013 from 006-semantic-session-search.
+        
+        Clears awaiting state, cancels timeout, executes search, and
+        presents results.
+        """
+        from src.lib.messages import SEARCH_EMPTY_QUERY, SEARCH_EMPTY_QUERY_SIMPLIFIED
+        
+        chat_id = event.chat_id
+        
+        # Clear awaiting state (T029)
+        self._awaiting_search_query.pop(chat_id, None)
+        
+        # Cancel timeout task (T029)
+        if chat_id in self._search_timeout_tasks:
+            self._search_timeout_tasks[chat_id].cancel()
+            del self._search_timeout_tasks[chat_id]
+        
+        # Validate query is not empty (T039)
+        if not query:
+            msg = SEARCH_EMPTY_QUERY_SIMPLIFIED if self._simplified_ui else SEARCH_EMPTY_QUERY
+            await self.bot.send_message(chat_id, msg)
+            return
+        
+        # Check if search service is available
+        if not self.search_service:
+            await self.bot.send_message(
+                chat_id,
+                "❌ Serviço de busca não disponível.",
+            )
+            return
+        
+        # Execute search (T013)
+        response = self.search_service.search(
+            query=query,
+            chat_id=chat_id,
+            limit=self._search_config.max_results,
+            min_score=self._search_config.min_similarity_score,
+        )
+        
+        # Present results (T016)
+        await self._present_search_results(chat_id, response.results)
+        
+        logger.info(
+            f"Search completed for chat_id={chat_id}: "
+            f"query='{query[:50]}...', results={len(response.results)}"
+        )
+
+    async def _present_search_results(
+        self,
+        chat_id: int,
+        results: list,
+    ) -> None:
+        """Present search results as inline buttons.
+        
+        Per T016 from 006-semantic-session-search.
+        
+        Shows results as buttons if found, or no-results message with
+        recovery options if empty.
+        """
+        from src.lib.messages import (
+            SEARCH_RESULTS_HEADER, SEARCH_RESULTS_HEADER_SIMPLIFIED,
+            SEARCH_NO_RESULTS, SEARCH_NO_RESULTS_SIMPLIFIED,
+        )
+        from src.services.telegram.keyboards import (
+            build_search_results_keyboard,
+            build_no_results_keyboard,
+        )
+        
+        if results:
+            # Build results keyboard (T014)
+            keyboard = build_search_results_keyboard(
+                results,
+                simplified=self._simplified_ui,
+            )
+            
+            # Send results header with keyboard
+            header = (
+                SEARCH_RESULTS_HEADER_SIMPLIFIED 
+                if self._simplified_ui 
+                else SEARCH_RESULTS_HEADER
+            )
+            await self.bot.send_message(
+                chat_id,
+                header,
+                reply_markup=keyboard,
+            )
+        else:
+            # Build no results keyboard (T015, T021)
+            keyboard = build_no_results_keyboard(simplified=self._simplified_ui)
+            
+            # Send no results message with keyboard
+            msg = (
+                SEARCH_NO_RESULTS_SIMPLIFIED 
+                if self._simplified_ui 
+                else SEARCH_NO_RESULTS
+            )
+            await self.bot.send_message(
+                chat_id,
+                msg,
+                reply_markup=keyboard,
+            )
+
+    async def _handle_search_select_callback(
+        self,
+        event: TelegramEvent,
+        value: str,
+    ) -> None:
+        """Handle search:select:{session_id} callback.
+        
+        Per T017-T018 from 006-semantic-session-search.
+        
+        Parses session ID from callback value and calls _restore_session.
+        """
+        # Parse callback value: "select:{session_id}"
+        parts = value.split(":", 1)
+        if len(parts) != 2 or parts[0] != "select":
+            logger.warning(f"Invalid search callback format: {value}")
+            return
+        
+        session_id = parts[1]
+        await self._restore_session(event.chat_id, session_id)
+
+    async def _restore_session(self, chat_id: int, session_id: str) -> None:
+        """Restore a session from search results.
+        
+        Per T019-T020 from 006-semantic-session-search.
+        
+        Loads session, sets as active, and sends confirmation with
+        SESSION_ACTIVE keyboard.
+        """
+        from src.lib.messages import (
+            SEARCH_SESSION_RESTORED, SEARCH_SESSION_RESTORED_SIMPLIFIED,
+            SEARCH_SESSION_LOAD_ERROR, SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED,
+        )
+        from src.services.telegram.keyboards import (
+            build_keyboard,
+            build_session_load_error_keyboard,
+        )
+        from src.models.ui_state import KeyboardType
+        
+        try:
+            # Load session (T019)
+            session = self.session_manager.storage.load(session_id)
+            
+            if not session:
+                raise ValueError(f"Session not found: {session_id}")
+            
+            # Check if already active (T020)
+            active = self.session_manager.get_active_session()
+            if active and active.id == session_id:
+                # Already active - just confirm
+                await self.bot.send_message(
+                    chat_id,
+                    "✅ Esta sessão já está ativa.",
+                )
+                return
+            
+            # Note: For search restoration, we show session info but don't 
+            # change its state. The user can view transcripts or process it.
+            # Only sessions in COLLECTING state are "active" per SessionManager.
+            
+            # Build confirmation message
+            session_name = escape_markdown(session.intelligible_name or session_id)
+            if self._simplified_ui:
+                msg = SEARCH_SESSION_RESTORED_SIMPLIFIED.format(
+                    session_name=session_name,
+                    audio_count=session.audio_count,
+                )
+            else:
+                msg = SEARCH_SESSION_RESTORED.format(
+                    session_name=session_name,
+                    audio_count=session.audio_count,
+                )
+            
+            # Build SESSION_ACTIVE keyboard
+            keyboard = build_keyboard(
+                KeyboardType.SESSION_ACTIVE,
+                simplified=self._simplified_ui,
+            )
+            
+            await self.bot.send_message(
+                chat_id,
+                msg,
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+            
+            logger.info(f"Session restored: {session_id} for chat_id={chat_id}")
+            
+        except Exception as e:
+            # Session load error (T025-T026)
+            logger.error(f"Failed to restore session {session_id}: {e}")
+            
+            msg = (
+                SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED 
+                if self._simplified_ui 
+                else SEARCH_SESSION_LOAD_ERROR
+            )
+            keyboard = build_session_load_error_keyboard(simplified=self._simplified_ui)
+            
+            await self.bot.send_message(
+                chat_id,
+                msg,
+                reply_markup=keyboard,
+            )
+
+    async def _handle_close_action(self, event: TelegramEvent) -> None:
+        """Handle action:close callback - dismiss search results.
+        
+        Per T023-T024, T030 from 006-semantic-session-search.
+        
+        Clears any pending search state and acknowledges the close.
+        """
+        chat_id = event.chat_id
+        
+        # Clear awaiting state if any
+        self._awaiting_search_query.pop(chat_id, None)
+        
+        # Cancel timeout task if any (T030)
+        if chat_id in self._search_timeout_tasks:
+            self._search_timeout_tasks[chat_id].cancel()
+            del self._search_timeout_tasks[chat_id]
+        
+        # Simply acknowledge - message will be dismissed by Telegram
+        logger.debug(f"Search closed for chat_id={chat_id}")
 
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
@@ -1723,6 +2043,17 @@ async def run_daemon() -> NoReturn:
     # Initialize downstream processor
     downstream_processor = DownstreamProcessor(session_manager)
 
+    # Initialize SearchService for semantic session search (006-semantic-session-search)
+    search_service: SearchService | None = None
+    try:
+        logger.info("Initializing SearchService...")
+        search_service = DefaultSearchService(storage=storage, embedding_service=None)
+        logger.info("SearchService initialized")
+    except Exception as e:
+        logger.warning(f"Failed to initialize SearchService: {e}")
+        logger.warning("Semantic search will be unavailable")
+        search_service = None
+
     # Initialize UIService for inline keyboard support (005-telegram-ux-overhaul)
     # UIService requires access to bot._app.bot after bot.start()
     # So we initialize it as None and set it after bot starts
@@ -1730,7 +2061,8 @@ async def run_daemon() -> NoReturn:
 
     # Create orchestrator and register event handler
     orchestrator = VoiceOrchestrator(
-        bot, session_manager, transcription_service, downstream_processor, ui_service
+        bot, session_manager, transcription_service, downstream_processor, ui_service,
+        search_service=search_service,
     )
     orchestrator.set_chat_id(telegram_config.allowed_chat_id)
     bot.on_event(orchestrator.handle_event)

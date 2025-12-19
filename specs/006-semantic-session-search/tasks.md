@@ -13,9 +13,9 @@
 
 **Purpose**: Configuration and message templates required by all user stories
 
-- [ ] T001 Add SearchConfig class to src/lib/config.py with min_similarity_score, max_results, query_timeout_seconds
-- [ ] T002 [P] Add search flow messages to src/lib/messages.py (SEARCH_PROMPT, SEARCH_RESULTS_HEADER, SEARCH_NO_RESULTS, SEARCH_SESSION_RESTORED, SEARCH_TIMEOUT)
-- [ ] T003 [P] Add BUTTON_NEW_SEARCH and BUTTON_NEW_SEARCH_SIMPLIFIED to src/lib/messages.py
+- [x] T001 Add SearchConfig class to src/lib/config.py with min_similarity_score, max_results, query_timeout_seconds
+- [x] T002 [P] Add search flow messages to src/lib/messages.py (SEARCH_PROMPT, SEARCH_RESULTS_HEADER, SEARCH_NO_RESULTS, SEARCH_SESSION_RESTORED, SEARCH_TIMEOUT)
+- [x] T003 [P] Add BUTTON_NEW_SEARCH and BUTTON_NEW_SEARCH_SIMPLIFIED to src/lib/messages.py
 
 ---
 
@@ -25,11 +25,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add KeyboardType.SEARCH_RESULTS and SEARCH_NO_RESULTS enum values to src/models/ui_state.py
-- [ ] T005 Add conversational state fields to VoiceOrchestrator.__init__ in src/cli/daemon.py (_awaiting_search_query, _search_timeout_tasks dicts)
-- [ ] T006 [P] Add search_service parameter to VoiceOrchestrator constructor in src/cli/daemon.py
-- [ ] T007 [P] Add search_config property loading in VoiceOrchestrator.__init__ in src/cli/daemon.py
-- [ ] T008 Inject SearchService instance in run_daemon() function in src/cli/daemon.py
+- [x] T004 Add KeyboardType.SEARCH_RESULTS and SEARCH_NO_RESULTS enum values to src/models/ui_state.py
+- [x] T005 Add conversational state fields to VoiceOrchestrator.__init__ in src/cli/daemon.py (_awaiting_search_query, _search_timeout_tasks dicts)
+- [x] T006 [P] Add search_service parameter to VoiceOrchestrator constructor in src/cli/daemon.py
+- [x] T007 [P] Add search_config property loading in VoiceOrchestrator.__init__ in src/cli/daemon.py
+- [x] T008 Inject SearchService instance in run_daemon() function in src/cli/daemon.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -43,14 +43,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement _handle_search_action() method in src/cli/daemon.py (send prompt, set awaiting state, start timeout)
-- [ ] T010 [US1] Add "search" case to _handle_action_callback() in src/cli/daemon.py calling _handle_search_action()
-- [ ] T011 [US1] Implement _start_search_timeout() async method in src/cli/daemon.py (60s timeout with cancellation)
-- [ ] T012 [US1] Add text interception in handle_event() to check _awaiting_search_query before routing in src/cli/daemon.py
-- [ ] T013 [US1] Implement _process_search_query() method in src/cli/daemon.py (clear state, call SearchService, present results)
-- [ ] T014 [P] [US1] Implement build_search_results_keyboard() function in src/services/telegram/keyboards.py with button format "📁 {session_name} ({score:.0%})"
-- [ ] T015 [P] [US1] Implement build_no_results_keyboard() function in src/services/telegram/keyboards.py
-- [ ] T016 [US1] Implement _present_search_results() method in src/cli/daemon.py (handle results vs no-results cases)
+- [x] T009 [US1] Implement _handle_search_action() method in src/cli/daemon.py (send prompt, set awaiting state, start timeout)
+- [x] T010 [US1] Add "search" case to _handle_action_callback() in src/cli/daemon.py calling _handle_search_action()
+- [x] T011 [US1] Implement _start_search_timeout() async method in src/cli/daemon.py (60s timeout with cancellation)
+- [x] T012 [US1] Add text interception in handle_event() to check _awaiting_search_query before routing in src/cli/daemon.py
+- [x] T013 [US1] Implement _process_search_query() method in src/cli/daemon.py (clear state, call SearchService, present results)
+- [x] T014 [P] [US1] Implement build_search_results_keyboard() function in src/services/telegram/keyboards.py with button format "📁 {session_name} ({score:.0%})"
+- [x] T015 [P] [US1] Implement build_no_results_keyboard() function in src/services/telegram/keyboards.py
+- [x] T016 [US1] Implement _present_search_results() method in src/cli/daemon.py (handle results vs no-results cases)
 
 **Checkpoint**: User can search and see results as buttons - US1 independently functional
 
@@ -64,10 +64,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Add "search" case to _handle_callback() routing in src/cli/daemon.py for search:select:{id} callbacks
-- [ ] T018 [US2] Implement _handle_search_select_callback() method in src/cli/daemon.py (parse session_id, call _restore_session)
-- [ ] T019 [US2] Implement _restore_session() method in src/cli/daemon.py (load session, set active, send confirmation with SESSION_ACTIVE keyboard)
-- [ ] T020 [US2] Handle "session already active" edge case in _restore_session() in src/cli/daemon.py
+- [x] T017 [US2] Add "search" case to _handle_callback() routing in src/cli/daemon.py for search:select:{id} callbacks
+- [x] T018 [US2] Implement _handle_search_select_callback() method in src/cli/daemon.py (parse session_id, call _restore_session)
+- [x] T019 [US2] Implement _restore_session() method in src/cli/daemon.py (load session, set active, send confirmation with SESSION_ACTIVE keyboard)
+- [x] T020 [US2] Handle "session already active" edge case in _restore_session() in src/cli/daemon.py
 
 **Checkpoint**: Full search-to-restore flow works - US1 + US2 form complete MVP
 
@@ -81,10 +81,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Ensure _present_search_results() shows SEARCH_NO_RESULTS message when results empty in src/cli/daemon.py
-- [ ] T022 [US3] Verify [Nova Busca] button callback restarts search flow (reuses action:search handler)
-- [ ] T023 [US3] Implement _handle_close_action() method in src/cli/daemon.py (clear state, dismiss message)
-- [ ] T024 [US3] Add "close" case to _handle_action_callback() in src/cli/daemon.py
+- [x] T021 [US3] Ensure _present_search_results() shows SEARCH_NO_RESULTS message when results empty in src/cli/daemon.py
+- [x] T022 [US3] Verify [Nova Busca] button callback restarts search flow (reuses action:search handler)
+- [x] T023 [US3] Implement _handle_close_action() method in src/cli/daemon.py (clear state, dismiss message)
+- [x] T024 [US3] Add "close" case to _handle_action_callback() in src/cli/daemon.py
 
 **Checkpoint**: No-results flow complete with recovery options
 
@@ -98,9 +98,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Add try/except around session load in _restore_session() in src/cli/daemon.py
-- [ ] T026 [US4] Implement error recovery keyboard with [Tentar Novamente] [Fechar] in src/cli/daemon.py
-- [ ] T027 [US4] Add SEARCH_SESSION_LOAD_ERROR message to src/lib/messages.py
+- [x] T025 [US4] Add try/except around session load in _restore_session() in src/cli/daemon.py
+- [x] T026 [US4] Implement error recovery keyboard with [Tentar Novamente] [Fechar] in src/cli/daemon.py
+- [x] T027 [US4] Add SEARCH_SESSION_LOAD_ERROR message to src/lib/messages.py
 
 **Checkpoint**: Corrupted session case handled gracefully
 
@@ -114,9 +114,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T028 [US5] Verify _start_search_timeout() sends SEARCH_TIMEOUT message after configured seconds in src/cli/daemon.py
-- [ ] T029 [US5] Ensure timeout task is cancelled when query received in _process_search_query() in src/cli/daemon.py
-- [ ] T030 [US5] Ensure timeout task is cancelled when [Fechar] pressed in _handle_close_action() in src/cli/daemon.py
+- [x] T028 [US5] Verify _start_search_timeout() sends SEARCH_TIMEOUT message after configured seconds in src/cli/daemon.py
+- [x] T029 [US5] Ensure timeout task is cancelled when query received in _process_search_query() in src/cli/daemon.py
+- [x] T030 [US5] Ensure timeout task is cancelled when [Fechar] pressed in _handle_close_action() in src/cli/daemon.py
 
 **Checkpoint**: Timeout handling complete - system never stuck waiting
 
@@ -126,14 +126,14 @@
 
 **Purpose**: Contract and integration tests for search callback flow
 
-- [ ] T031 [P] Create tests/unit/test_daemon_search.py with unit tests for search state management
-- [ ] T032 [P] Add test_search_action_sets_awaiting_state() to tests/unit/test_daemon_search.py
-- [ ] T033 [P] Add test_search_query_clears_state() to tests/unit/test_daemon_search.py
-- [ ] T034 [P] Add test_search_timeout_clears_state() to tests/unit/test_daemon_search.py
-- [ ] T035 Extend tests/integration/test_search_flow.py with callback flow tests
-- [ ] T036 Add test_full_search_restore_flow() to tests/integration/test_search_flow.py
-- [ ] T037 Add test_search_no_results_flow() to tests/integration/test_search_flow.py
-- [ ] T038 Add test_search_corrupted_session_flow() to tests/integration/test_search_flow.py
+- [x] T031 [P] Create tests/unit/test_daemon_search.py with unit tests for search state management
+- [x] T032 [P] Add test_search_action_sets_awaiting_state() to tests/unit/test_daemon_search.py
+- [x] T033 [P] Add test_search_query_clears_state() to tests/unit/test_daemon_search.py
+- [x] T034 [P] Add test_search_timeout_clears_state() to tests/unit/test_daemon_search.py
+- [x] T035 Extend tests/integration/test_search_flow.py with callback flow tests
+- [x] T036 Add test_full_search_restore_flow() to tests/integration/test_search_flow.py
+- [x] T037 Add test_search_no_results_flow() to tests/integration/test_search_flow.py
+- [x] T038 Add test_search_corrupted_session_flow() to tests/integration/test_search_flow.py
 
 **Checkpoint**: All test scenarios covered
 
@@ -143,11 +143,11 @@
 
 **Purpose**: Documentation, edge cases, cleanup
 
-- [ ] T039 [P] Handle empty query edge case (user sends whitespace) in _process_search_query() in src/cli/daemon.py
-- [ ] T040 [P] Add SEARCH_EMPTY_QUERY message to src/lib/messages.py
+- [x] T039 [P] Handle empty query edge case (user sends whitespace) in _process_search_query() in src/cli/daemon.py
+- [x] T040 [P] Add SEARCH_EMPTY_QUERY message to src/lib/messages.py
 - [ ] T041 Verify search works during active transcription (independent operations per spec edge case)
 - [ ] T042 Run quickstart.md validation manually
-- [ ] T043 Update specs/006-semantic-session-search/checklists/requirements.md with implementation status
+- [x] T043 Update specs/006-semantic-session-search/checklists/requirements.md with implementation status
 
 ---
 

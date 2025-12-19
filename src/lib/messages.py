@@ -212,6 +212,31 @@ HELP_MESSAGES_SIMPLIFIED: dict[str, str] = {
 }
 
 # =============================================================================
+# Search Flow Messages (006-semantic-session-search)
+# =============================================================================
+
+SEARCH_PROMPT = "🔍 Descreva o tema da sessão que procura:"
+SEARCH_PROMPT_SIMPLIFIED = "Descreva o tema da sessão que procura:"
+
+SEARCH_RESULTS_HEADER = "📋 Sessões encontradas:"
+SEARCH_RESULTS_HEADER_SIMPLIFIED = "Sessões encontradas:"
+
+SEARCH_NO_RESULTS = "❌ Nenhuma sessão encontrada para sua busca.\n\nTente descrever de outra forma."
+SEARCH_NO_RESULTS_SIMPLIFIED = "Nenhuma sessão encontrada. Tente descrever de outra forma."
+
+SEARCH_SESSION_RESTORED = "✅ Sessão *{session_name}* restaurada.\n\n🎙️ {audio_count} áudio(s)"
+SEARCH_SESSION_RESTORED_SIMPLIFIED = "Sessão {session_name} restaurada. {audio_count} áudio(s)"
+
+SEARCH_TIMEOUT = "⏰ Busca cancelada por inatividade."
+SEARCH_TIMEOUT_SIMPLIFIED = "Busca cancelada por inatividade."
+
+SEARCH_EMPTY_QUERY = "❌ Por favor, descreva o tema da sessão que procura."
+SEARCH_EMPTY_QUERY_SIMPLIFIED = "Por favor, descreva o tema da sessão."
+
+SEARCH_SESSION_LOAD_ERROR = "❌ Não foi possível carregar a sessão.\n\nTente novamente ou escolha outra."
+SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED = "Erro ao carregar sessão. Tente novamente."
+
+# =============================================================================
 # Button Labels
 # =============================================================================
 
@@ -265,6 +290,12 @@ BUTTON_RESUME_SIMPLIFIED = "Retomar"
 
 BUTTON_DISCARD = "🗑️ Descartar"
 BUTTON_DISCARD_SIMPLIFIED = "Descartar"
+
+BUTTON_NEW_SEARCH = "🔄 Nova Busca"
+BUTTON_NEW_SEARCH_SIMPLIFIED = "Nova Busca"
+
+BUTTON_TRY_AGAIN = "🔄 Tentar Novamente"
+BUTTON_TRY_AGAIN_SIMPLIFIED = "Tentar Novamente"
 
 # =============================================================================
 # Recovery Prompts

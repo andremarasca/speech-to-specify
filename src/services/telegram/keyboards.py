@@ -14,6 +14,7 @@ from src.models.ui_state import (
     ConfirmationContext,
     ConfirmationOption,
 )
+from src.models.search_result import SearchResult
 from src.lib.messages import (
     get_button_label,
     BUTTON_FINALIZE,
@@ -50,6 +51,10 @@ from src.lib.messages import (
     BUTTON_RESUME_SIMPLIFIED,
     BUTTON_DISCARD,
     BUTTON_DISCARD_SIMPLIFIED,
+    BUTTON_NEW_SEARCH,
+    BUTTON_NEW_SEARCH_SIMPLIFIED,
+    BUTTON_TRY_AGAIN,
+    BUTTON_TRY_AGAIN_SIMPLIFIED,
 )
 
 
@@ -82,6 +87,8 @@ def build_keyboard(
         KeyboardType.PAGINATION: _build_pagination,
         KeyboardType.HELP_CONTEXT: _build_help_context,
         KeyboardType.TIMEOUT: _build_timeout,
+        KeyboardType.SEARCH_RESULTS: _build_search_results,
+        KeyboardType.SEARCH_NO_RESULTS: _build_search_no_results,
     }
     
     builder = builders.get(keyboard_type)
@@ -320,3 +327,117 @@ def keyboard_has_help_button(keyboard: InlineKeyboardMarkup) -> bool:
             if button.callback_data == "action:help":
                 return True
     return False
+
+
+# =============================================================================
+# Search Keyboard Builders (006-semantic-session-search)
+# =============================================================================
+
+
+def _build_search_results(
+    simplified: bool = False,
+    results: list[SearchResult] | None = None,
+    **kwargs,
+) -> InlineKeyboardMarkup:
+    """Build keyboard for search results with dynamic session buttons.
+    
+    Per plan.md for 006-semantic-session-search.
+    
+    Args:
+        simplified: Use simplified button labels (no emojis)
+        results: List of SearchResult objects to display as buttons
+        
+    Returns:
+        InlineKeyboardMarkup with session buttons and footer actions
+    """
+    return build_search_results_keyboard(results or [], simplified)
+
+
+def _build_search_no_results(simplified: bool = False, **kwargs) -> InlineKeyboardMarkup:
+    """Build keyboard for no search results."""
+    return build_no_results_keyboard(simplified)
+
+
+def build_search_results_keyboard(
+    results: list[SearchResult],
+    simplified: bool = False,
+) -> InlineKeyboardMarkup:
+    """Build keyboard for search results with dynamic session buttons.
+    
+    Per data-model.md for 006-semantic-session-search.
+    
+    Args:
+        results: List of SearchResult objects to display
+        simplified: Use simplified button labels (no emojis)
+        
+    Returns:
+        InlineKeyboardMarkup with session buttons and footer actions
+    """
+    buttons = []
+    
+    for result in results:
+        if simplified:
+            label = f"{result.session_name} ({result.relevance_score:.0%})"
+        else:
+            label = f"📁 {result.session_name} ({result.relevance_score:.0%})"
+        
+        # Truncate label if too long for Telegram (64 char max for callback_data)
+        if len(label) > 40:
+            label = label[:37] + "..."
+        
+        callback_data = f"search:select:{result.session_id}"
+        buttons.append([InlineKeyboardButton(label, callback_data=callback_data)])
+    
+    # Footer row with New Search and Close buttons
+    new_search = BUTTON_NEW_SEARCH_SIMPLIFIED if simplified else BUTTON_NEW_SEARCH
+    close = BUTTON_CLOSE_SIMPLIFIED if simplified else BUTTON_CLOSE
+    buttons.append([
+        InlineKeyboardButton(new_search, callback_data="action:search"),
+        InlineKeyboardButton(close, callback_data="action:close"),
+    ])
+    
+    return InlineKeyboardMarkup(buttons)
+
+
+def build_no_results_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Build keyboard for no search results.
+    
+    Per data-model.md for 006-semantic-session-search.
+    
+    Args:
+        simplified: Use simplified button labels (no emojis)
+        
+    Returns:
+        InlineKeyboardMarkup with New Search and Close buttons
+    """
+    new_search = BUTTON_NEW_SEARCH_SIMPLIFIED if simplified else BUTTON_NEW_SEARCH
+    close = BUTTON_CLOSE_SIMPLIFIED if simplified else BUTTON_CLOSE
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(new_search, callback_data="action:search"),
+            InlineKeyboardButton(close, callback_data="action:close"),
+        ]
+    ])
+
+
+def build_session_load_error_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Build keyboard for session load error during search restoration.
+    
+    Per data-model.md for 006-semantic-session-search.
+    
+    Args:
+        simplified: Use simplified button labels (no emojis)
+        
+    Returns:
+        InlineKeyboardMarkup with Try Again and Close buttons
+    """
+    try_again = BUTTON_TRY_AGAIN_SIMPLIFIED if simplified else BUTTON_TRY_AGAIN
+    close = BUTTON_CLOSE_SIMPLIFIED if simplified else BUTTON_CLOSE
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(try_again, callback_data="action:search"),
+            InlineKeyboardButton(close, callback_data="action:close"),
+        ]
+    ])

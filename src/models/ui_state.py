@@ -34,6 +34,8 @@ class KeyboardType(str, Enum):
     PAGINATION = "PAGINATION"              # Previous, Next, Close
     HELP_CONTEXT = "HELP_CONTEXT"          # Back, related actions
     TIMEOUT = "TIMEOUT"                    # Continue, Cancel
+    SEARCH_RESULTS = "SEARCH_RESULTS"      # Dynamic search results (006-semantic-session-search)
+    SEARCH_NO_RESULTS = "SEARCH_NO_RESULTS"  # No results found + retry options
 
 
 class OperationType(str, Enum):

@@ -95,6 +95,38 @@ class SessionConfig(BaseSettings):
         return Path(self.sessions_dir)
 
 
+class SearchConfig(BaseSettings):
+    """Configuration for semantic search.
+    
+    Per data-model.md for 006-semantic-session-search.
+    """
+
+    min_similarity_score: float = Field(
+        default=0.6,
+        alias="SEARCH_MIN_SCORE",
+        description="Minimum similarity score threshold for search results",
+    )
+
+    max_results: int = Field(
+        default=5,
+        alias="SEARCH_MAX_RESULTS",
+        description="Maximum number of search results to display",
+    )
+
+    query_timeout_seconds: int = Field(
+        default=60,
+        alias="SEARCH_QUERY_TIMEOUT",
+        description="Timeout in seconds for search query input",
+    )
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "populate_by_name": True,
+    }
+
+
 class Settings(BaseSettings):
     """
     Application configuration loaded from environment variables.
@@ -236,14 +268,27 @@ def get_session_config() -> SessionConfig:
     return _session_config
 
 
+# Search config instance (lazy loaded)
+_search_config: SearchConfig | None = None
+
+
+def get_search_config() -> SearchConfig:
+    """Get the search configuration instance."""
+    global _search_config
+    if _search_config is None:
+        _search_config = SearchConfig()
+    return _search_config
+
+
 def reset_all_configs() -> None:
     """Reset all configuration instances (useful for testing)."""
-    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config
+    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config, _search_config
     _settings = None
     _telegram_config = None
     _whisper_config = None
     _session_config = None
     _ui_config = None
+    _search_config = None
 
 
 class UIConfig(BaseSettings):
