@@ -106,6 +106,8 @@ class VoiceOrchestrator:
         self._awaiting_search_query: dict[int, bool] = {}
         self._search_timeout_tasks: dict[int, asyncio.Task] = {}
         self._search_config = get_search_config()
+        self._help_fallback_enabled = self._search_config.help_fallback_enabled
+        self._orphan_recovery_prompt = self._search_config.orphan_recovery_prompt
 
     def set_chat_id(self, chat_id: int) -> None:
         """Set the authorized chat ID for sending messages."""
@@ -222,6 +224,10 @@ class VoiceOrchestrator:
             await handler(event)
         else:
             logger.warning(f"Unknown command: {command}")
+            await self.bot.send_message(
+                event.chat_id,
+                "❓ Comando desconhecido. Use /help para ver opções.",
+            )
 
     async def _handle_callback(self, event: TelegramEvent) -> None:
         """
@@ -507,8 +513,14 @@ class VoiceOrchestrator:
                 preferences=preferences,
             )
         else:
-            # Fallback to basic help
-            await self._cmd_help(event)
+            # Fallback to basic help if enabled
+            if self._help_fallback_enabled:
+                await self._cmd_help(event)
+            else:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❓ Ajuda contextual indisponível no momento.",
+                )
 
     async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle recover: callbacks for crash recovery."""
@@ -660,15 +672,21 @@ class VoiceOrchestrator:
         
         if value == "current":
             # User clicked on page indicator - no action needed
-            pass
+            return
         else:
             try:
                 page = int(value)
-                # TODO: Update paginated content with new page
-                # This requires storing pagination state per chat
                 logger.debug(f"Navigate to page {page}")
+                await self.bot.send_message(
+                    event.chat_id,
+                    "↔️ Navegação de página ainda não persistida; continue usando os botões.",
+                )
             except ValueError:
                 logger.warning(f"Invalid page number: {value}")
+                await self.bot.send_message(
+                    event.chat_id,
+                    "⚠️ Página inválida, continue navegando com os botões.",
+                )
 
     async def _handle_retry_callback(self, event: TelegramEvent, retry_action: str) -> None:
         """Handle retry: callbacks for error recovery.
@@ -830,13 +848,27 @@ class VoiceOrchestrator:
             )
             return
         
-        # Execute search (T013)
-        response = self.search_service.search(
-            query=query,
-            chat_id=chat_id,
-            limit=self._search_config.max_results,
-            min_score=self._search_config.min_similarity_score,
-        )
+        # Execute search (T013) with external timeout and page size from config
+        try:
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.search_service.search,
+                    query=query,
+                    chat_id=chat_id,
+                    limit=self._search_config.page_size,
+                    min_score=self._search_config.min_similarity_score,
+                ),
+                timeout=self._search_config.search_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            await self.bot.send_message(
+                chat_id,
+                "⚠️ A busca está demorando. Tente novamente em instantes.",
+            )
+            logger.warning(
+                "Search timed out: chat_id=%s query=%s", chat_id, query[:50]
+            )
+            return
         
         # Present results (T016)
         await self._present_search_results(chat_id, response.results)
@@ -867,10 +899,13 @@ class VoiceOrchestrator:
             build_no_results_keyboard,
         )
         
-        if results:
+        page_size = self._search_config.page_size
+        limited_results = results[:page_size] if results else []
+
+        if limited_results:
             # Build results keyboard (T014)
             keyboard = build_search_results_keyboard(
-                results,
+                limited_results,
                 simplified=self._simplified_ui,
             )
             
@@ -916,6 +951,10 @@ class VoiceOrchestrator:
         parts = value.split(":", 1)
         if len(parts) != 2 or parts[0] != "select":
             logger.warning(f"Invalid search callback format: {value}")
+            await self.bot.send_message(
+                event.chat_id,
+                "⚠️ Seleção inválida, escolha um item da lista.",
+            )
             return
         
         session_id = parts[1]
@@ -2315,13 +2354,13 @@ async def run_daemon() -> NoReturn:
     else:
         logger.warning("Could not initialize UIService - inline keyboards unavailable")
 
-    # Check for orphaned sessions on startup (T031b)
-    # Orphaned sessions are in COLLECTING state but haven't been updated recently
-    await _check_orphaned_sessions(
-        session_manager=session_manager,
-        ui_service=ui_service,
-        chat_id=telegram_config.allowed_chat_id,
-    )
+    # Check for orphaned sessions on startup (T031b) if enabled
+    if orchestrator._orphan_recovery_prompt:
+        await _check_orphaned_sessions(
+            session_manager=session_manager,
+            ui_service=ui_service,
+            chat_id=telegram_config.allowed_chat_id,
+        )
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
 

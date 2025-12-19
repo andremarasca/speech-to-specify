@@ -119,6 +119,31 @@ class SearchConfig(BaseSettings):
         description="Timeout in seconds for search query input",
     )
 
+    # Contract values for Telegram interface (001-telegram-contract-fix)
+    search_timeout_seconds: int = Field(
+        default=5,
+        alias="SEARCH_TIMEOUT",
+        description="Timeout for executing semantic search before warning the user (seconds)",
+    )
+
+    page_size: int = Field(
+        default=5,
+        alias="PAGINATION_PAGE_SIZE",
+        description="Page size for paginated search results",
+    )
+
+    help_fallback_enabled: bool = Field(
+        default=True,
+        alias="HELP_FALLBACK_ENABLED",
+        description="Allow fallback help message when UIService is unavailable",
+    )
+
+    orphan_recovery_prompt: bool = Field(
+        default=True,
+        alias="ORPHAN_RECOVERY_PROMPT",
+        description="Enable prompting users to recover orphaned sessions after restart",
+    )
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

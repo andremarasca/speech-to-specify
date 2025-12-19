@@ -17,9 +17,9 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Atualizar .env.example com SEARCH_TIMEOUT, PAGINATION_PAGE_SIZE, HELP_FALLBACK_ENABLED, ORPHAN_RECOVERY_PROMPT (proj root/.env.example)
-- [ ] T002 Garantir requirements e dev deps instalados (python-telegram-bot, pytest) em requirements*.txt (requirements.txt, requirements-dev.txt)
-- [ ] T003 Criar/atualizar doc de execução rápida com comandos de testes obrigatórios (specs/001-telegram-contract-fix/quickstart.md)
+- [x] T001 Atualizar .env.example com SEARCH_TIMEOUT, PAGINATION_PAGE_SIZE, HELP_FALLBACK_ENABLED, ORPHAN_RECOVERY_PROMPT (proj root/.env.example)
+- [x] T002 Garantir requirements e dev deps instalados (python-telegram-bot, pytest) em requirements*.txt (requirements.txt, requirements-dev.txt)
+- [x] T003 Criar/atualizar doc de execução rápida com comandos de testes obrigatórios (specs/001-telegram-contract-fix/quickstart.md)
 
 ---
 
@@ -27,11 +27,11 @@
 
 **Purpose**: Estruturar contratos e testes guarda-chuva antes de histórias.
 
-- [ ] T004 Documentar contrato de comandos/callbacks final e sincronizar checklist (specs/001-telegram-contract-fix/contracts/telegram-contracts.md)
-- [ ] T005 [P] Adicionar testes de mapeamento de comandos para o TelegramBotAdapter/VoiceOrchestrator (tests/unit/test_telegram_event.py)
-- [ ] T006 [P] Adicionar teste de cobertura de prefixos de callback gerados por keyboards e roteados em `_handle_callback` (tests/unit/test_keyboards.py)
-- [ ] T007 Configurar job de CI local (comando) que roda suíte obrigatória de pytest (specs/001-telegram-contract-fix/quickstart.md, .github/workflows/ if existente ou docs)
-- [ ] T036 [P] Auditar/ajustar handlers/teclados/busca/recuperação para ler SEARCH_TIMEOUT, PAGINATION_PAGE_SIZE, HELP_FALLBACK_ENABLED, ORPHAN_RECOVERY_PROMPT etc. de env/config; adicionar pytest que falha se houver literais hardcoded
+- [x] T004 Documentar contrato de comandos/callbacks final e sincronizar checklist (specs/001-telegram-contract-fix/contracts/telegram-contracts.md)
+- [x] T005 [P] Adicionar testes de mapeamento de comandos para o TelegramBotAdapter/VoiceOrchestrator (tests/unit/test_telegram_event.py)
+- [x] T006 [P] Adicionar teste de cobertura de prefixos de callback gerados por keyboards e roteados em `_handle_callback` (tests/unit/test_keyboards.py)
+- [x] T007 Configurar job de CI local (comando) que roda suíte obrigatória de pytest (specs/001-telegram-contract-fix/quickstart.md, .github/workflows/ if existente ou docs)
+- [x] T036 [P] Auditar/ajustar handlers/teclados/busca/recuperação para ler SEARCH_TIMEOUT, PAGINATION_PAGE_SIZE, HELP_FALLBACK_ENABLED, ORPHAN_RECOVERY_PROMPT etc. de env/config; adicionar pytest que falha se houver literais hardcoded
 
 **Checkpoint**: Fundamentos prontos; histórias podem iniciar.
 
@@ -43,16 +43,16 @@
 **Independent Test**: `/start` → enviar áudios mock → `/status` → `/done`/`/finish` → recebe confirmações; ajuda contextual não quebra.
 
 ### Tests for User Story 1
-- [ ] T008 [P] [US1] Teste contrato de comandos `/start|/done|/finish|/status|/transcripts|/process|/list|/get|/help|/preferences|/session` mapeados no orchestrator (tests/unit/test_telegram_event.py)
+- [x] T008 [P] [US1] Teste contrato de comandos `/start|/done|/finish|/status|/transcripts|/process|/list|/get|/help|/preferences|/session` mapeados no orchestrator (tests/unit/test_telegram_event.py)
 - [ ] T009 [P] [US1] Teste integração de fluxo gravação→status→finalização com teclados contextuais (tests/integration/test_inline_keyboard_flow.py)
 
 ### Implementation for User Story 1
-- [ ] T010 [P] [US1] Registrar todos os CommandHandlers no TelegramBotAdapter.start() (src/services/telegram/bot.py)
-- [ ] T011 [US1] Consolidar dicionário `_handle_command` com aliases e fallback “Comando desconhecido” (src/cli/daemon.py)
-- [ ] T012 [US1] Implementar/ajustar `_cmd_start`, `_cmd_status`, `_cmd_finish` (aliases /done,/finish) com mensagens de produto e teclados (src/cli/daemon.py)
-- [ ] T013 [US1] Implementar `_cmd_transcripts`, `_cmd_process`, `_cmd_list`, `_cmd_get`, `_cmd_session` com rotas mínimas seguras e logs estruturados (src/cli/daemon.py)
-- [ ] T014 [US1] Tratar comandos `/help` e `/preferences` como entradas válidas (fallback para histórias 3 onde aplicável) sem erro técnico (src/cli/daemon.py)
-- [ ] T015 [US1] Garantir acknowledgements de callbacks `action:close_help`, `action:dismiss`, `page:current` via `CallbackQuery.answer()` (src/services/telegram/bot.py)
+- [x] T010 [P] [US1] Registrar todos os CommandHandlers no TelegramBotAdapter.start() (src/services/telegram/bot.py)
+- [x] T011 [US1] Consolidar dicionário `_handle_command` com aliases e fallback “Comando desconhecido” (src/cli/daemon.py)
+- [x] T012 [US1] Implementar/ajustar `_cmd_start`, `_cmd_status`, `_cmd_finish` (aliases /done,/finish) com mensagens de produto e teclados (src/cli/daemon.py)
+- [x] T013 [US1] Implementar `_cmd_transcripts`, `_cmd_process`, `_cmd_list`, `_cmd_get`, `_cmd_session` com rotas mínimas seguras e logs estruturados (src/cli/daemon.py)
+- [x] T014 [US1] Tratar comandos `/help` e `/preferences` como entradas válidas (fallback para histórias 3 onde aplicável) sem erro técnico (src/cli/daemon.py)
+- [x] T015 [US1] Garantir acknowledgements de callbacks `action:close_help`, `action:dismiss`, `page:current` via `CallbackQuery.answer()` (src/services/telegram/bot.py)
 
 **Checkpoint**: Gravação e comandos base funcionam e são testáveis.
 
@@ -64,16 +64,16 @@
 **Independent Test**: `/search query` → lista paginada → `search:select:<id>` abre sessão; `page:<n>` navega ou avisa input inválido.
 
 ### Tests for User Story 2
-- [ ] T016 [P] [US2] Teste de mapeamento `/search` e estado “aguardando query” (tests/unit/test_daemon_search.py)
-- [ ] T017 [P] [US2] Teste de roteamento `search:*` e `page:*` (válido, current, inválido) (tests/unit/test_keyboards.py ou novo teste dedicado)
+- [x] T016 [P] [US2] Teste de mapeamento `/search` e estado “aguardando query” (tests/unit/test_daemon_search.py)
+- [x] T017 [P] [US2] Teste de roteamento `search:*` e `page:*` (válido, current, inválido) (tests/unit/test_keyboards.py ou novo teste dedicado)
 - [ ] T018 [US2] Teste integração fluxo de busca end-to-end com seleção de sessão (tests/integration/test_search_flow.py)
 
 ### Implementation for User Story 2
-- [ ] T019 [P] [US2] Unificar `/search <query>` com `_process_search_query` e fluxo conversacional (src/cli/daemon.py)
-- [ ] T020 [US2] Implementar `_handle_search_action` para marcar estado aguardando query e orientar usuário (src/cli/daemon.py)
-- [ ] T021 [US2] Implementar `_handle_search_select_callback` carregando sessão e apresentando resumo/ações (src/cli/daemon.py)
-- [ ] T022 [US2] Implementar `_handle_page_callback` com ack seguro, parsing int, warning em inválido, TODO de estado de página (src/cli/daemon.py)
-- [ ] T023 [US2] Garantir keyboards com callbacks `search:select:<id>` e `page:<n>/current` coerentes (src/services/telegram/keyboards.py)
+- [x] T019 [P] [US2] Unificar `/search <query>` com `_process_search_query` e fluxo conversacional (src/cli/daemon.py)
+- [x] T020 [US2] Implementar `_handle_search_action` para marcar estado aguardando query e orientar usuário (src/cli/daemon.py)
+- [x] T021 [US2] Implementar `_handle_search_select_callback` carregando sessão e apresentando resumo/ações (src/cli/daemon.py)
+- [x] T022 [US2] Implementar `_handle_page_callback` com ack seguro, parsing int, warning em inválido, TODO de estado de página (src/cli/daemon.py)
+- [x] T023 [US2] Garantir keyboards com callbacks `search:select:<id>` e `page:<n>/current` coerentes (src/services/telegram/keyboards.py)
 - [ ] T037 Simular reinício do daemon no meio da busca; reemitir ou substituir callbacks `search:*` / `page:*` pós-restart sem “Unknown action”; adicionar tests/integration/test_search_restart_flow.py
 
 **Checkpoint**: Busca semântica funcional e segura.

@@ -182,12 +182,36 @@ class TestSearchQueryClearsState:
         """Verify that search query triggers SearchService.search()."""
         chat_id = text_event.chat_id
         orchestrator._awaiting_search_query[chat_id] = True
+        orchestrator._search_config.page_size = 3
         
         await orchestrator._process_search_query(text_event, text_event.text)
         
         mock_search_service.search.assert_called_once()
         call_kwargs = mock_search_service.search.call_args
         assert text_event.text in str(call_kwargs)
+        assert call_kwargs.kwargs.get("limit") == 3
+
+    @pytest.mark.asyncio
+    async def test_search_query_timeout_warns_user(
+        self, orchestrator, text_event, mock_bot
+    ):
+        """Verify that a long search triggers timeout handling."""
+        chat_id = text_event.chat_id
+        orchestrator._awaiting_search_query[chat_id] = True
+        orchestrator._search_config.search_timeout_seconds = 0.01
+
+        # Replace search_service.search with a slow coroutine via to_thread by wrapping
+        def slow_blocking_search(**kwargs):
+            import time
+            time.sleep(0.05)
+            return MagicMock(results=[])
+
+        orchestrator.search_service.search.side_effect = slow_blocking_search
+
+        await orchestrator._process_search_query(text_event, text_event.text)
+
+        mock_bot.send_message.assert_called()
+        assert "busca" in str(mock_bot.send_message.call_args).lower()
 
 
 class TestSearchTimeoutClearsState:
@@ -402,6 +426,41 @@ class TestEmptyQueryHandling:
         mock_bot.send_message.assert_called_once()
         call_args = str(mock_bot.send_message.call_args)
         assert "descreva" in call_args.lower()
+
+
+class TestPageCallbackBehavior:
+    """Validate pagination callbacks per contract."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_page_sends_warning(self, orchestrator, mock_bot):
+        event = MagicMock(spec=TelegramEvent)
+        event.chat_id = 12345
+        await orchestrator._handle_page_callback(event, "abc")
+        mock_bot.send_message.assert_called_once()
+        assert "página inválida" in str(mock_bot.send_message.call_args).lower()
+
+    @pytest.mark.asyncio
+    async def test_current_page_no_message(self, orchestrator, mock_bot):
+        event = MagicMock(spec=TelegramEvent)
+        event.chat_id = 12345
+        await orchestrator._handle_page_callback(event, "current")
+        mock_bot.send_message.assert_not_called()
+
+
+class TestHelpFallbackToggle:
+    """Ensure help fallback obeys configuration toggle."""
+
+    @pytest.mark.asyncio
+    async def test_help_fallback_disabled(self, orchestrator, mock_bot):
+        orchestrator.ui_service = None
+        orchestrator._help_fallback_enabled = False
+        event = MagicMock(spec=TelegramEvent)
+        event.chat_id = 12345
+
+        await orchestrator._handle_help_callback(event, "unknown")
+
+        mock_bot.send_message.assert_called_once()
+        assert "ajuda contextual indisponível" in str(mock_bot.send_message.call_args).lower()
 
     @pytest.mark.asyncio
     async def test_whitespace_query_shows_error(self, orchestrator, mock_bot, text_event):

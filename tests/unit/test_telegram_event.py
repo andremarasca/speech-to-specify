@@ -1,11 +1,17 @@
-"""Unit tests for TelegramEvent callback query support.
+"""Unit tests for Telegram event normalization and routing.
 
-Tests the callback event factory and property accessors per T030.
+Tests cover TelegramEvent factories plus command/callback routing
+contracts defined for the VoiceOrchestrator.
 """
 
-import pytest
+import asyncio
+import logging
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from src.cli.daemon import VoiceOrchestrator
 from src.services.telegram.adapter import TelegramEvent
 
 
@@ -220,3 +226,102 @@ class TestExistingEventTypes:
         assert event.is_callback is False
         assert event.file_id == "test_file_id"
         assert event.duration == 30
+
+
+class TestCommandRouting:
+    """Ensure VoiceOrchestrator routes all contract commands."""
+
+    @pytest.fixture()
+    def orchestrator(self) -> VoiceOrchestrator:
+        """Provide orchestrator with minimal dependencies for routing tests."""
+        bot = MagicMock()
+        bot.send_message = AsyncMock()
+        return VoiceOrchestrator(bot=bot, session_manager=MagicMock())
+
+    @pytest.mark.parametrize(
+        "command, handler_name",
+        [
+            ("start", "_cmd_start"),
+            ("finish", "_cmd_finish"),
+            ("done", "_cmd_finish"),
+            ("status", "_cmd_status"),
+            ("transcripts", "_cmd_transcripts"),
+            ("process", "_cmd_process"),
+            ("list", "_cmd_list"),
+            ("get", "_cmd_get"),
+            ("session", "_cmd_session"),
+            ("preferences", "_cmd_preferences"),
+            ("help", "_cmd_help"),
+            ("search", "_cmd_search"),
+        ],
+    )
+    def test_commands_dispatch_to_handlers(self, orchestrator: VoiceOrchestrator, command: str, handler_name: str):
+        handler = AsyncMock()
+        setattr(orchestrator, handler_name, handler)
+
+        event = TelegramEvent.command(chat_id=123456, command=command)
+        asyncio.run(orchestrator._handle_command(event))
+
+        handler.assert_awaited_once_with(event)
+
+    def test_unknown_command_warns(self, orchestrator: VoiceOrchestrator, caplog: pytest.LogCaptureFixture):
+        event = TelegramEvent.command(chat_id=123456, command="unknown")
+
+        with caplog.at_level(logging.WARNING):
+            asyncio.run(orchestrator._handle_command(event))
+
+        assert "Unknown command" in caplog.text
+
+
+class TestCallbackRouting:
+    """Ensure callback prefixes route to dedicated handlers."""
+
+    @pytest.fixture()
+    def orchestrator(self) -> VoiceOrchestrator:
+        orchestrator = VoiceOrchestrator(bot=MagicMock(), session_manager=MagicMock())
+
+        orchestrator._handle_action_callback = AsyncMock()
+        orchestrator._handle_help_callback = AsyncMock()
+        orchestrator._handle_recover_callback = AsyncMock()
+        orchestrator._handle_confirm_callback = AsyncMock()
+        orchestrator._handle_nav_callback = AsyncMock()
+        orchestrator._handle_retry_callback = AsyncMock()
+        orchestrator._handle_page_callback = AsyncMock()
+        orchestrator._handle_search_select_callback = AsyncMock()
+
+        return orchestrator
+
+    @pytest.mark.parametrize(
+        "callback_data, handler_name, expected_value",
+        [
+            ("action:finalize", "_handle_action_callback", "finalize"),
+            ("help:session", "_handle_help_callback", "session"),
+            ("recover:resume_session", "_handle_recover_callback", "resume_session"),
+            ("confirm:session_conflict:new", "_handle_confirm_callback", "session_conflict:new"),
+            ("nav:next:page", "_handle_nav_callback", "next:page"),
+            ("retry:last_action", "_handle_retry_callback", "last_action"),
+            ("page:2", "_handle_page_callback", "2"),
+            ("search:select:abc123", "_handle_search_select_callback", "select:abc123"),
+        ],
+    )
+    def test_callback_dispatches_by_prefix(
+        self,
+        orchestrator: VoiceOrchestrator,
+        callback_data: str,
+        handler_name: str,
+        expected_value: str,
+    ) -> None:
+        handler = getattr(orchestrator, handler_name)
+
+        event = TelegramEvent.callback(chat_id=123456, callback_data=callback_data)
+        asyncio.run(orchestrator._handle_callback(event))
+
+        handler.assert_awaited_once_with(event, expected_value)
+
+    def test_unknown_callback_logs_warning(self, orchestrator: VoiceOrchestrator, caplog: pytest.LogCaptureFixture):
+        event = TelegramEvent.callback(chat_id=123456, callback_data="noop")
+
+        with caplog.at_level(logging.WARNING):
+            asyncio.run(orchestrator._handle_callback(event))
+
+        assert "Unknown callback action" in caplog.text

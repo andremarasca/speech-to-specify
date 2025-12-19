@@ -5,6 +5,7 @@
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 2) **Configurar ambiente**
@@ -29,6 +30,8 @@ pytest tests/unit/test_telegram_event.py -v
 pytest tests/integration/test_inline_keyboard_flow.py -v
 pytest tests/integration/test_search_flow.py -v
 pytest tests/integration/test_crash_recovery_ui.py -v
+# Comando único para CI/local gate
+pytest tests/unit tests/integration -v
 ```
 - Adicione novos testes de contrato para mapeamento de comandos/callbacks ao introduzir novos botões/comandos.
 

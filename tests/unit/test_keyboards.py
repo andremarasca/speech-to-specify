@@ -11,6 +11,8 @@ These tests verify:
 
 import pytest
 
+from src.models.search_result import SearchResult
+from src.models.session import MatchType
 from src.models.ui_state import (
     KeyboardType,
     ConfirmationContext,
@@ -20,6 +22,9 @@ from src.models.ui_state import (
 from src.services.telegram.keyboards import (
     build_keyboard,
     build_recovery_keyboard,
+    build_search_results_keyboard,
+    build_no_results_keyboard,
+    build_session_load_error_keyboard,
     keyboard_has_help_button,
 )
 
@@ -283,3 +288,52 @@ class TestButtonLabelsExternalized:
         
         for label in labels:
             assert label in expected_labels, f"Label '{label}' not from messages module"
+
+
+class TestKeyboardCallbackPrefixes:
+    """Ensure keyboards only emit callback prefixes handled by orchestrator."""
+
+    def _collect_callbacks(self, keyboard):
+        return [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
+
+    def test_all_keyboard_callbacks_use_supported_prefixes(self):
+        allowed_prefixes = {"action", "help", "recover", "confirm", "nav", "retry", "page", "search"}
+
+        search_results = [
+            SearchResult(
+                session_id="s1",
+                session_name="Session 1",
+                relevance_score=0.9,
+                match_type=MatchType.SEMANTIC,
+            ),
+            SearchResult(
+                session_id="s2",
+                session_name="Session 2",
+                relevance_score=0.8,
+                match_type=MatchType.TEXT,
+            ),
+        ]
+
+        keyboards = [
+            build_keyboard(KeyboardType.SESSION_ACTIVE),
+            build_keyboard(KeyboardType.SESSION_EMPTY),
+            build_keyboard(KeyboardType.PROCESSING),
+            build_keyboard(KeyboardType.RESULTS),
+            build_keyboard(KeyboardType.CONFIRMATION),
+            build_keyboard(KeyboardType.SESSION_CONFLICT),
+            build_keyboard(KeyboardType.ERROR_RECOVERY),
+            build_keyboard(KeyboardType.PAGINATION, current_page=2, total_pages=3),
+            build_keyboard(KeyboardType.HELP_CONTEXT),
+            build_keyboard(KeyboardType.TIMEOUT),
+            build_keyboard(KeyboardType.SEARCH_RESULTS, results=search_results),
+            build_keyboard(KeyboardType.SEARCH_NO_RESULTS),
+            build_recovery_keyboard(),
+            build_search_results_keyboard(search_results),
+            build_no_results_keyboard(),
+            build_session_load_error_keyboard(),
+        ]
+
+        for keyboard in keyboards:
+            for callback in self._collect_callbacks(keyboard):
+                prefix = callback.split(":", 1)[0]
+                assert prefix in allowed_prefixes, f"Unexpected prefix '{prefix}' in callback '{callback}'"

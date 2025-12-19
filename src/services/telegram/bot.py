@@ -158,13 +158,21 @@ class TelegramBotAdapter:
         await self._dispatch_event(event)
 
     async def _handle_finish(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /done or /finish command."""
+        """Handle /done or /finish command.
+        
+        Preserve the actual command name so orchestrator routing can
+        distinguish aliases for contract coverage.
+        """
         if not await self._check_auth(update):
             return
 
+        raw_command = (update.effective_message.text or "").strip()
+        # extract command without leading slash and args
+        command_name = raw_command.split()[0].lstrip("/").lower() if raw_command else "finish"
+
         event = TelegramEvent.command(
             chat_id=update.effective_chat.id,
-            command="finish",
+            command=command_name,
         )
         await self._dispatch_event(event)
 
@@ -283,11 +291,11 @@ class TelegramBotAdapter:
         await self._dispatch_event(event)
 
     async def _handle_unknown(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle unknown commands."""
+        """Handle unknown commands with contract wording."""
         if not await self._check_auth(update):
             return
 
-        await update.message.reply_text("❓ Unknown command. Try /help")
+        await update.message.reply_text("❓ Comando desconhecido. Use /help para ver opções.")
 
     async def _handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle voice message."""
