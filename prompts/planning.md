@@ -53,5 +53,13 @@ Generate ONLY the content below. Do not include introductory or concluding remar
 # 🏗️ Implementation Strategy
 [Step-by-step technical execution plan. Incorporate logic from the brainstorm where it makes sense]
 
+# ⚠️ Alerta de Design
+[OBRIGATÓRIO SE HOUVER SUBSTITUIÇÕES. Se qualquer decisão do Brainstorm foi substituída por violar a Constituição ou a Especificação, inclua este bloco. O Agente Executor DEVE respeitar estas decisões e NÃO tentar reverter para a ideia original do brainstorm.]
+
+**Substituições Realizadas:**
+- [Ideia Original] → [Decisão Final]: [Justificativa técnica concisa]
+
+Se não houve substituições, omita esta seção completamente.
+
 # 💡 Technical Reasoning & Substitutions
-[Mandatory: Explain any changes made to the user's brainstorm to satisfy the Constitution or Specification]
+[Mandatory: Explain any changes made to the user's brainstorm to satisfy the Constitution or Specification. This section provides full context; the Design Alert above serves as a priority flag for the Executor Agent.]

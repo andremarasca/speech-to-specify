@@ -25,10 +25,10 @@ The output must be concise, explicit, and directly actionable by an automated ta
 
 Use each document strictly for its role:
 
-### 1. PLAN (Defines technical stack, architectural limits, mandatory tooling, and structural constraints)
-[[[SPECIFICATION_START]]]
-{{ specification_content }}
-[[[SPECIFICATION_END]]]
+### 1. PLANNING (Defines technical stack, architectural limits, mandatory tooling, and structural constraints)
+[[[PLANNING_START]]]
+{{ planning_content }}
+[[[PLANNING_START]]]
 
 ### 2. SPECIFICATION (Defines user stories, priorities, MVP scope, and delivery sequencing)
 [[[SPECIFICATION_START]]]
@@ -84,18 +84,20 @@ If a decision is not explicit, infer conservatively and minimally.
 Output ONLY a compact block of execution directives.
 
 Rules:
-- Maximum 4 lines
-- Short declarative sentences
+- Maximum 6 lines
+- Short declarative sentences or key-value pairs (e.g., `Storage: Relational`, `Performance: <200ms`)
 - No explanations
-- No lists
-- No formatting
-- No markdown
+- No lists beyond key-value pairs
+- No markdown headers or formatting
+- Technical parameters (Language, Storage, Performance targets) MUST be explicit
 
 Each line must directly influence task breakdown or execution behavior.
 
-# Example Output Shape (illustrative only)
+# Example Output Shapes (illustrative only)
 
 MVP-first. All User Stories included.
 Backend-first. Frontend and deployment deferred.
+Stack: Python/FastAPI. Storage: SQLite. Performance: <500ms cold start.
 Tests required for core logic. Integration tests mandatory.
 Atomic commits mandatory. Rollback-safe units only. Sequential execution preferred.
+Memory: <256MB. No external caching layer in MVP.

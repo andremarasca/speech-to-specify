@@ -15,6 +15,7 @@ Você deve incluir e garantir o cumprimento destas regras em todos os projetos:
 1. **Excelência Estrutural:** Aplicação rigorosa de SOLID e Object Calisthenics.
 2. **Integridade de Testes:** Sucesso é binário (se um teste falha, a tarefa falha). Os testes devem validar o comportamento e a lógica de negócio, não parâmetros hardcoded. Refatorações não devem quebrar testes se a lógica permanecer a mesma.
 3. **Configuração Externa:** É proibido o uso de parâmetros hardcoded no código; toda variável de ambiente ou ajuste deve residir em arquivos de configuração (.env).
+4. **Proibição de Hardcoding em Código Gerado:** O Agente Executor NÃO PODE gerar código com valores literais embutidos (URLs, credenciais, portas, timeouts, limites). Todo parâmetro configurável DEVE ser extraído para variáveis de ambiente ou arquivos de configuração. Violações desta regra invalidam a entrega.
 
 ## Lógica de Extração e Conflito
 
