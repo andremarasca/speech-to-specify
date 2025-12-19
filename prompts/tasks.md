@@ -77,6 +77,16 @@ Translate the documents into directives along these axes:
    - Rollback safety mandatory or best-effort
    - Commit frequency expectations
 
+6. Design Alerts (PRIORITY)
+   - Extract ALL substitutions and justifications from the '⚠️ Alerta de Design' section of the PLANNING
+   - These are MANDATORY constraints that override brainstorm ideas
+   - The Executor Agent MUST NOT attempt to revert to original brainstorm suggestions
+
+7. External Configuration
+   - If PLANNING indicates new dependencies, integrations, or infrastructure, emit "Config: External" directive
+   - Environment variables are mandatory for all integration points
+   - .env.example generation required in Phase 1
+
 If a decision is not explicit, infer conservatively and minimally.
 
 # Output Contract (STRICT)
@@ -93,11 +103,11 @@ Rules:
 
 Each line must directly influence task breakdown or execution behavior.
 
-# Example Output Shapes (illustrative only)
+# Example Output Shape (illustrative only)
 
-MVP-first. All User Stories included.
-Backend-first. Frontend and deployment deferred.
-Stack: Python/FastAPI. Storage: SQLite. Performance: <500ms cold start.
-Tests required for core logic. Integration tests mandatory.
-Atomic commits mandatory. Rollback-safe units only. Sequential execution preferred.
-Memory: <256MB. No external caching layer in MVP.
+Scope: All MVP stories. Order: Backend-first.
+Stack: Python/FastAPI. Storage: SQLite. Performance: <500ms.
+Design Alert: Redis replaced with in-memory cache (Constitution Clause 3).
+Rigor: Tests mandatory for core logic. Success is binary.
+Config: External. Generate .env.example in Phase 1. No hardcoded values.
+Commits: Atomic and rollback-safe. Sequential execution.
