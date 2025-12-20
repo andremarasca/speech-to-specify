@@ -212,8 +212,10 @@ class VoiceOrchestrator:
             "transcripts": self._cmd_transcripts,
             "process": self._cmd_process,
             "list": self._cmd_list,
+            "sessions": self._cmd_sessions,  # List all sessions
             "get": self._cmd_get,
             "session": self._cmd_session,
+            "reopen": self._cmd_reopen,  # Reopen finalized session
             "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
             "help": self._cmd_help,
             "search": self._cmd_search,  # 006-semantic-session-search (by name)
@@ -1022,12 +1024,12 @@ class VoiceOrchestrator:
         await self._restore_session(event.chat_id, session_id)
 
     async def _restore_session(self, chat_id: int, session_id: str) -> None:
-        """Restore a session from search results.
+        """Restore a session from search results and activate it.
         
         Per T019-T020 from 006-semantic-session-search.
         
-        Loads session, sets as active, and sends confirmation with
-        SESSION_ACTIVE keyboard.
+        Loads session, transitions to COLLECTING state (reopening if needed),
+        and sends confirmation with SESSION_ACTIVE keyboard.
         """
         from src.lib.messages import (
             SEARCH_SESSION_RESTORED, SEARCH_SESSION_RESTORED_SIMPLIFIED,
@@ -1039,6 +1041,8 @@ class VoiceOrchestrator:
             build_session_load_error_keyboard,
         )
         from src.models.ui_state import KeyboardType
+        from src.models.session import SessionState
+        from src.services.session.manager import InvalidStateError
         
         try:
             session = self.session_manager.storage.load(session_id)
@@ -1106,22 +1110,55 @@ class VoiceOrchestrator:
                 )
                 return
             
-            # Note: For search restoration, we show session info but don't 
-            # change its state. The user can view transcripts or process it.
-            # Only sessions in COLLECTING state are "active" per SessionManager.
+            # Check if session is already COLLECTING
+            if session.state == SessionState.COLLECTING:
+                session_name = escape_markdown(session.intelligible_name or session_id)
+                await self.bot.send_message(
+                    chat_id,
+                    f"✅ Sessão *{session_name}* ativada.\n\n"
+                    f"🎙️ Áudios: {session.audio_count}\n\n"
+                    "Envie mensagens de voz para adicionar mais áudio.",
+                    parse_mode="Markdown",
+                )
+                return
             
-            # Build confirmation message
+            # Check if can reopen (TRANSCRIBED, PROCESSED, or READY)
+            allowed_states = [SessionState.TRANSCRIBED, SessionState.PROCESSED, SessionState.READY]
+            if session.state not in allowed_states:
+                await self.bot.send_message(
+                    chat_id,
+                    f"❌ Não é possível reabrir sessão em estado `{session.state.value}`.\n\n"
+                    f"Estados permitidos: TRANSCRIBED, PROCESSED, READY",
+                    parse_mode="Markdown",
+                )
+                return
+            
+            # Check for conflict with current active session
+            if active and active.id != session.id and active.audio_count > 0:
+                active_name = escape_markdown(active.intelligible_name) if active.intelligible_name else active.id
+                await self.bot.send_message(
+                    chat_id,
+                    f"⚠️ Já existe uma sessão ativa: *{active_name}*\n\n"
+                    f"Use `/done` para finalizar a sessão atual antes de reabrir outra.",
+                    parse_mode="Markdown",
+                )
+                return
+            
+            # Transition to COLLECTING (reopen the session)
+            old_state = session.state
+            self.session_manager.transition_state(session.id, SessionState.COLLECTING)
+            
+            # Build confirmation message with reopen info
             session_name = escape_markdown(session.intelligible_name or session_id)
-            if self._simplified_ui:
-                msg = SEARCH_SESSION_RESTORED_SIMPLIFIED.format(
-                    session_name=session_name,
-                    audio_count=session.audio_count,
-                )
-            else:
-                msg = SEARCH_SESSION_RESTORED.format(
-                    session_name=session_name,
-                    audio_count=session.audio_count,
-                )
+            msg = (
+                f"✅ **Sessão Reaberta**\n\n"
+                f"📛 *{session_name}*\n"
+                f"🆔 ID: `{session_id}`\n"
+                f"🎙️ Áudios existentes: {session.audio_count}\n"
+                f"📊 Estado: {old_state.value} → COLLECTING\n\n"
+                f"Envie mensagens de voz para adicionar mais áudio.\n"
+                f"Use `/done` quando terminar."
+            )
             
             # Build SESSION_ACTIVE keyboard
             keyboard = build_keyboard(
@@ -1137,15 +1174,22 @@ class VoiceOrchestrator:
             )
             
             logger.info(
-                "Session restored",
+                "Session restored and reopened",
                 extra={
                     "chat_id": chat_id,
                     "session_id": session_id,
+                    "old_state": old_state.value,
+                    "new_state": "COLLECTING",
                     "callback_prefix": "search",
                     "callback_value": f"select:{session_id}",
                 },
             )
             
+        except InvalidStateError as e:
+            await self.bot.send_message(
+                chat_id,
+                f"❌ Erro ao reabrir sessão: {e}",
+            )
         except Exception as e:
             # Session load error (T025-T026)
             logger.error(
@@ -1902,6 +1946,57 @@ class VoiceOrchestrator:
             parse_mode="Markdown",
         )
 
+    async def _cmd_sessions(self, event: TelegramEvent) -> None:
+        """Handle /sessions command - list all available sessions.
+        
+        Shows all sessions with ID, name, state, and audio count.
+        """
+        sessions = self.session_manager.list_sessions(limit=20)
+        
+        if not sessions:
+            await self.bot.send_message(
+                event.chat_id,
+                "❌ Nenhuma sessão encontrada.\n\n"
+                "Envie uma mensagem de voz para começar.",
+            )
+            return
+        
+        lines = ["📋 **Todas as Sessões**\n"]
+        
+        for session in sessions:
+            # Status emoji
+            status_emoji = {
+                SessionState.COLLECTING: "🟢",
+                SessionState.TRANSCRIBING: "🟡",
+                SessionState.TRANSCRIBED: "🔵",
+                SessionState.PROCESSING: "🟣",
+                SessionState.PROCESSED: "✅",
+                SessionState.READY: "⚪",
+                SessionState.INTERRUPTED: "🟠",
+                SessionState.ERROR: "❌",
+            }.get(session.state, "⚪")
+            
+            # Session name
+            name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+            
+            # Format line
+            lines.append(
+                f"{status_emoji} *{name}*\n"
+                f"   `{session.id}`\n"
+                f"   🎙️ {session.audio_count} áudio(s) | {session.state.value}\n"
+            )
+        
+        lines.append("\n**Comandos:**")
+        lines.append("• `/reopen <id>` - Reabrir sessão")
+        lines.append("• `/transcripts` - Ver transcrições")
+        lines.append("• `/list` - Ver arquivos da sessão recente")
+        
+        await self.bot.send_message(
+            event.chat_id,
+            "\n".join(lines),
+            parse_mode="Markdown",
+        )
+
     def _format_size(self, size_bytes: int) -> str:
         """Format file size for display."""
         if size_bytes < 1024:
@@ -2030,6 +2125,134 @@ class VoiceOrchestrator:
 
         logger.info(f"Resolved '{reference}' to session {session.id} via {match.match_type.value}")
 
+    async def _cmd_reopen(self, event: TelegramEvent) -> None:
+        """Handle /reopen [session_id] - reopen a finalized session to add more audio.
+        
+        Transitions TRANSCRIBED/PROCESSED/READY sessions back to COLLECTING state,
+        allowing the user to send more voice messages.
+        
+        Usage:
+            /reopen              - Reopen most recent reopenable session
+            /reopen <session_id>  - Reopen specific session by ID
+            /reopen <name>        - Reopen session by name match
+        """
+        reference = (event.command_args or "").strip()
+        session = None
+        active = self.session_manager.get_active_session()
+        
+        if not reference:
+            # No reference - find most recent reopenable session
+            sessions = self.session_manager.list_sessions(limit=20)
+            allowed_states = [SessionState.TRANSCRIBED, SessionState.PROCESSED, SessionState.READY]
+            
+            for s in sessions:
+                if s.state in allowed_states:
+                    session = s
+                    break
+            
+            if not session:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❌ Nenhuma sessão disponível para reabrir.\n\n"
+                    "💡 Use `/sessions` para ver todas as sessões.",
+                    parse_mode="Markdown",
+                )
+                return
+        else:
+            # Resolve session reference
+            match = self.session_manager.resolve_session_reference(
+                reference, 
+                active.id if active else None
+            )
+            
+            if match.match_type == MatchType.NOT_FOUND:
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Sessão não encontrada: `{reference}`\n\n"
+                    "💡 Use `/sessions` para ver sessões disponíveis.",
+                    parse_mode="Markdown",
+                )
+                return
+            
+            if match.match_type == MatchType.AMBIGUOUS:
+                await self._show_ambiguous_candidates(event.chat_id, reference, match.candidates)
+                return
+            
+            # Load session
+            session = self.session_manager.storage.load(match.session_id)
+            if not session:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❌ Sessão não encontrada (pode ter sido deletada).",
+                )
+                return
+        
+        # Check if already collecting
+        if session.state == SessionState.COLLECTING:
+            session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+            await self.bot.send_message(
+                event.chat_id,
+                f"ℹ️ Sessão *{session_name}* já está ativa.\n\n"
+                f"🎙️ Áudios: {session.audio_count}\n\n"
+                "Envie mensagens de voz para adicionar mais áudio.",
+                parse_mode="Markdown",
+            )
+            return
+        
+        # Check if can reopen (TRANSCRIBED, PROCESSED, or READY)
+        allowed_states = [SessionState.TRANSCRIBED, SessionState.PROCESSED, SessionState.READY]
+        if session.state not in allowed_states:
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Não é possível reabrir sessão em estado `{session.state.value}`.\n\n"
+                f"Estados permitidos: TRANSCRIBED, PROCESSED, READY",
+                parse_mode="Markdown",
+            )
+            return
+        
+        # Check for conflict with current active session
+        if active and active.id != session.id and active.audio_count > 0:
+            active_name = escape_markdown(active.intelligible_name) if active.intelligible_name else active.id
+            await self.bot.send_message(
+                event.chat_id,
+                f"⚠️ Já existe uma sessão ativa: *{active_name}*\n\n"
+                f"Use `/done` para finalizar a sessão atual antes de reabrir outra.",
+                parse_mode="Markdown",
+            )
+            return
+        
+        # Transition to COLLECTING
+        try:
+            old_state = session.state
+            self.session_manager.transition_state(session.id, SessionState.COLLECTING)
+            
+            session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+            await self.bot.send_message(
+                event.chat_id,
+                f"✅ **Sessão Reaberta**\n\n"
+                f"📛 *{session_name}*\n"
+                f"🆔 ID: `{session.id}`\n"
+                f"🎙️ Áudios existentes: {session.audio_count}\n"
+                f"📊 Estado: {old_state.value} → COLLECTING\n\n"
+                f"Envie mensagens de voz para adicionar mais áudio.\n"
+                f"Use `/done` quando terminar.",
+                parse_mode="Markdown",
+            )
+            
+            logger.info(f"Reopened session {session.id}: {old_state.value} → COLLECTING")
+            
+        except InvalidStateError as e:
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Erro ao reabrir: {e}",
+            )
+        except Exception as e:
+            logger.exception(f"Error reopening session {session.id}: {e}")
+            await self.bot.send_message(
+                event.chat_id,
+                f"❌ Erro ao reabrir sessão: {e}",
+            )
+
     async def _cmd_preferences(self, event: TelegramEvent) -> None:
         """Handle /preferences [simplified] - toggle UI preferences.
         
@@ -2099,11 +2322,13 @@ class VoiceOrchestrator:
 • /start - Iniciar nova sessão
 • /done ou /finish - Finalizar sessão e transcrever
 • /status - Ver status da sessão atual
+• /reopen <id> - Reabrir sessão finalizada
 
 📂 **Gestão de Sessões:**
-• /list - Listar todas as sessões
-• /get <id> - Obter sessão específica
-• /session <id> - Carregar sessão por ID ou nome
+• /sessions - Listar todas as sessões
+• /list - Listar arquivos da sessão recente
+• /get <path> - Baixar arquivo específico
+• /session <id> - Ver detalhes de uma sessão
 
 🔍 **Busca (determinística):**
 • /search <nome> - Buscar por nome da sessão
@@ -2123,9 +2348,9 @@ class VoiceOrchestrator:
 3. 📝 Receba a transcrição
 
 **Dicas:**
-• Você pode enviar múltiplos áudios antes de finalizar
-• Use /searchtxt para encontrar sessões por conteúdo
-• Use /preferences simple para interface sem emojis"""
+• Use /sessions para ver todas as sessões
+• Use /reopen <id> para adicionar áudios a sessões finalizadas
+• Use /searchtxt para encontrar sessões por conteúdo"""
 
         await self.bot.send_message(
             event.chat_id,
@@ -2672,6 +2897,9 @@ async def run_daemon() -> NoReturn:
             ui_service=ui_service,
             chat_id=telegram_config.allowed_chat_id,
         )
+
+    # Rebuild session index for search/resolve functionality
+    session_manager.rebuild_session_index()
 
     logger.info("Daemon running. Press Ctrl+C to stop.")
 

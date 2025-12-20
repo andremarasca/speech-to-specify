@@ -157,7 +157,38 @@ class DefaultSessionMatcher(SessionMatcher):
 
         reference_lower = reference.lower()
 
-        # Step 2: Exact substring match
+        # Step 2a: Exact ID match (highest priority)
+        if reference in self._index:
+            return SessionMatch(
+                session_id=reference,
+                confidence=1.0,
+                match_type=MatchType.EXACT_SUBSTRING,
+                candidates=[]
+            )
+        
+        # Step 2b: ID substring match
+        id_matches = []
+        for session_id in self._index.keys():
+            if reference_lower in session_id.lower():
+                id_matches.append(session_id)
+        
+        if len(id_matches) == 1:
+            return SessionMatch(
+                session_id=id_matches[0],
+                confidence=1.0,
+                match_type=MatchType.EXACT_SUBSTRING,
+                candidates=[]
+            )
+        
+        if len(id_matches) > 1:
+            return SessionMatch(
+                session_id=None,
+                confidence=0.9,
+                match_type=MatchType.AMBIGUOUS,
+                candidates=id_matches
+            )
+
+        # Step 3: Exact name substring match
         exact_matches = []
         for session_id, (name, _) in self._index.items():
             if reference_lower in name.lower():

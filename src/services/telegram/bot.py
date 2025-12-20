@@ -84,11 +84,30 @@ class TelegramBotAdapter:
         self._app.add_handler(CommandHandler("transcripts", self._handle_transcripts))
         self._app.add_handler(CommandHandler("process", self._handle_process))
         self._app.add_handler(CommandHandler("list", self._handle_list))
+        self._app.add_handler(CommandHandler("sessions", self._handle_sessions))
         self._app.add_handler(CommandHandler("get", self._handle_get))
         self._app.add_handler(CommandHandler("help", self._handle_help))
         self._app.add_handler(CommandHandler("preferences", self._handle_preferences))
         self._app.add_handler(CommandHandler("search", self._handle_search))
+        self._app.add_handler(CommandHandler("searchid", self._handle_searchid))
+        self._app.add_handler(CommandHandler("searchtxt", self._handle_searchtxt))
         self._app.add_handler(CommandHandler("session", self._handle_session))
+        self._app.add_handler(CommandHandler("reopen", self._handle_reopen))
+
+        # Fallback handlers for unregistered commands (when Telegram doesn't send BOT_COMMAND entity)
+        # These catch text messages starting with /command pattern
+        self._app.add_handler(MessageHandler(
+            filters.TEXT & filters.Regex(r"^/searchid(\s|$)"),
+            self._handle_searchid_text
+        ))
+        self._app.add_handler(MessageHandler(
+            filters.TEXT & filters.Regex(r"^/reopen(\s|$)"),
+            self._handle_reopen_text
+        ))
+        self._app.add_handler(MessageHandler(
+            filters.TEXT & filters.Regex(r"^/searchtxt(\s|$)"),
+            self._handle_searchtxt_text
+        ))
 
         # Register voice message handler
         self._app.add_handler(MessageHandler(filters.VOICE, self._handle_voice))
@@ -220,6 +239,17 @@ class TelegramBotAdapter:
         )
         await self._dispatch_event(event)
 
+    async def _handle_sessions(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /sessions command - list all sessions."""
+        if not await self._check_auth(update):
+            return
+
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="sessions",
+        )
+        await self._dispatch_event(event)
+
     async def _handle_get(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /get <filename> command."""
         if not await self._check_auth(update):
@@ -277,6 +307,66 @@ class TelegramBotAdapter:
         )
         await self._dispatch_event(event)
 
+    async def _handle_searchid(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /searchid command - search by session ID."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="searchid",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_searchtxt(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /searchtxt command - search in transcripts."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="searchtxt",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_searchid_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /searchid as text message (fallback when not registered with BotFather)."""
+        if not await self._check_auth(update):
+            return
+
+        # Parse args from text: "/searchid arg1 arg2" -> "arg1 arg2"
+        text = update.message.text or ""
+        parts = text.split(maxsplit=1)
+        args = parts[1] if len(parts) > 1 else None
+        
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="searchid",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_searchtxt_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /searchtxt as text message (fallback when not registered with BotFather)."""
+        if not await self._check_auth(update):
+            return
+
+        # Parse args from text: "/searchtxt arg1 arg2" -> "arg1 arg2"
+        text = update.message.text or ""
+        parts = text.split(maxsplit=1)
+        args = parts[1] if len(parts) > 1 else None
+        
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="searchtxt",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
     async def _handle_session(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /session command - delegate to event handler."""
         if not await self._check_auth(update):
@@ -286,6 +376,36 @@ class TelegramBotAdapter:
         event = TelegramEvent.command(
             chat_id=update.effective_chat.id,
             command="session",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_reopen(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /reopen command - reopen finalized session."""
+        if not await self._check_auth(update):
+            return
+
+        args = " ".join(context.args) if context.args else None
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="reopen",
+            args=args,
+        )
+        await self._dispatch_event(event)
+
+    async def _handle_reopen_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /reopen as text message (fallback when not registered with BotFather)."""
+        if not await self._check_auth(update):
+            return
+
+        # Parse args from text: "/reopen arg1 arg2" -> "arg1 arg2"
+        text = update.message.text or ""
+        parts = text.split(maxsplit=1)
+        args = parts[1] if len(parts) > 1 else None
+        
+        event = TelegramEvent.command(
+            chat_id=update.effective_chat.id,
+            command="reopen",
             args=args,
         )
         await self._dispatch_event(event)

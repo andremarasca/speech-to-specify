@@ -905,14 +905,14 @@ class SessionManager:
         matcher = get_session_matcher()
         matcher.rebuild_index()
 
-        # Add all sessions to index
+        # Add all sessions to index (use ID as fallback name)
         sessions = self.storage.list_all_sessions()
         for session in sessions:
-            if session.intelligible_name:
-                matcher.update_session(
-                    session.id,
-                    session.intelligible_name,
-                    session.embedding
-                )
+            name = session.intelligible_name or session.id
+            matcher.update_session(
+                session.id,
+                name,
+                session.embedding
+            )
 
         logger.info(f"Rebuilt session index with {len(sessions)} sessions")

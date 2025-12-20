@@ -53,10 +53,10 @@ class SessionState(str, Enum):
         return {
             cls.COLLECTING: [cls.TRANSCRIBING, cls.INTERRUPTED, cls.ERROR],
             cls.TRANSCRIBING: [cls.TRANSCRIBED, cls.ERROR],
-            cls.TRANSCRIBED: [cls.EMBEDDING, cls.PROCESSING, cls.ERROR],
+            cls.TRANSCRIBED: [cls.EMBEDDING, cls.PROCESSING, cls.COLLECTING, cls.ERROR],  # Can reopen
             cls.EMBEDDING: [cls.READY, cls.ERROR],
             cls.PROCESSING: [cls.PROCESSED, cls.ERROR],
-            cls.PROCESSED: [cls.READY, cls.ERROR],  # Can transition to READY for reopen
+            cls.PROCESSED: [cls.READY, cls.COLLECTING, cls.ERROR],  # Can reopen
             cls.READY: [cls.COLLECTING, cls.ERROR],  # Can reopen
             cls.INTERRUPTED: [cls.COLLECTING, cls.ERROR],  # Can recover
             cls.ERROR: [],  # Terminal state, no transitions allowed
