@@ -299,6 +299,9 @@ BUTTON_NEW_SEARCH_SIMPLIFIED = "Nova Busca"
 BUTTON_TRY_AGAIN = "🔄 Tentar Novamente"
 BUTTON_TRY_AGAIN_SIMPLIFIED = "Tentar Novamente"
 
+BUTTON_SESSIONS_LIST = "📋 Ver todas as sessões"
+BUTTON_SESSIONS_LIST_SIMPLIFIED = "Ver todas as sessões"
+
 # =============================================================================
 # Recovery Prompts
 # =============================================================================

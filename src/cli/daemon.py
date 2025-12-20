@@ -292,6 +292,9 @@ class VoiceOrchestrator:
         if action == "finalize":
             # Same as /done command
             await self._cmd_finish(event)
+        elif action == "list_sessions":
+            # Executa a mesma lógica do comando /sessions
+            await self._cmd_sessions(event)
         elif action == "cancel":
             # Cancel active session without transcription
             active = self.session_manager.get_active_session()
@@ -2136,6 +2139,8 @@ class VoiceOrchestrator:
             /reopen <session_id>  - Reopen specific session by ID
             /reopen <name>        - Reopen session by name match
         """
+        from src.services.telegram.keyboards import build_sessions_list_keyboard
+
         reference = (event.command_args or "").strip()
         session = None
         active = self.session_manager.get_active_session()
@@ -2151,11 +2156,14 @@ class VoiceOrchestrator:
                     break
             
             if not session:
+                # Constrói o teclado (respeitando a preferência de UI simplificada)
+                keyboard = build_sessions_list_keyboard(simplified=self._simplified_ui)
+
                 await self.bot.send_message(
                     event.chat_id,
-                    "❌ Nenhuma sessão disponível para reabrir.\n\n"
-                    "💡 /sessions para ver todas as sessões.",
+                    "❌ Nenhuma sessão disponível para reabrir.",
                     parse_mode="Markdown",
+                    reply_markup=keyboard,
                 )
                 return
         else:

@@ -55,6 +55,8 @@ from src.lib.messages import (
     BUTTON_NEW_SEARCH_SIMPLIFIED,
     BUTTON_TRY_AGAIN,
     BUTTON_TRY_AGAIN_SIMPLIFIED,
+    BUTTON_SESSIONS_LIST,
+    BUTTON_SESSIONS_LIST_SIMPLIFIED,
 )
 
 
@@ -440,4 +442,13 @@ def build_session_load_error_keyboard(simplified: bool = False) -> InlineKeyboar
             InlineKeyboardButton(try_again, callback_data="action:search"),
             InlineKeyboardButton(close, callback_data="action:close"),
         ]
+    ])
+
+
+def build_sessions_list_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado com link para listar sessões."""
+    label = BUTTON_SESSIONS_LIST_SIMPLIFIED if simplified else BUTTON_SESSIONS_LIST
+    
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data="action:list_sessions")]
     ])
