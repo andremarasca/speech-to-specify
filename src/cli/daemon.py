@@ -276,6 +276,8 @@ class VoiceOrchestrator:
         elif callback_action == "search":
             # 006-semantic-session-search: Handle search:select:{session_id} callbacks
             await self._handle_search_select_callback(event, callback_value)
+        elif callback_action == "pref":
+            await self._handle_pref_callback(event, callback_value)
         else:
             logger.warning(
                 "Unknown callback action",
@@ -295,6 +297,18 @@ class VoiceOrchestrator:
         elif action == "list_sessions":
             # Executa a mesma lógica do comando /sessions
             await self._cmd_sessions(event)
+        elif action == "list_files":
+            # Executa a mesma lógica do comando /list
+            await self._cmd_list(event)
+        elif action.startswith("reopen_session:"):
+            # Reopen specific session from button click
+            session_id = action.split(":", 1)[1]
+            # Simulate /reopen <id> command
+            await self._cmd_reopen(event, override_args=session_id)
+        elif action == "reopen_menu":
+            # Show reopen menu (list of sessions)
+            # Simulate /reopen command (no args)
+            await self._cmd_reopen(event, override_args="")
         elif action == "cancel":
             # Cancel active session without transcription
             active = self.session_manager.get_active_session()
@@ -642,6 +656,8 @@ class VoiceOrchestrator:
 
     async def _handle_session_conflict_confirm(self, event: TelegramEvent, response: str) -> None:
         """Handle session conflict confirmation response."""
+        from src.services.telegram.keyboards import build_finalize_keyboard
+
         active = self.session_manager.get_active_session()
         
         if response == "finalize":
@@ -672,24 +688,27 @@ class VoiceOrchestrator:
             
             # Create new session
             session = self.session_manager.create_session(chat_id=event.chat_id)
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 f"✅ *New Session Started*\n\n"
                 f"🆔 Session: `{session.id}`\n"
                 f"📁 Status: COLLECTING\n\n"
-                f"Send voice messages to record audio.\n"
-                f"Use /done when finished.",
+                f"Send voice messages to record audio.",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
         elif response == "return":
             # Return to current session
             if active:
+                keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
                 await self.bot.send_message(
                     event.chat_id,
                     f"✅ Returning to session: `{active.id}`\n"
                     f"🎙️ Audio files: {active.audio_count}\n\n"
                     f"Send voice messages to continue.",
                     parse_mode="Markdown",
+                    reply_markup=keyboard,
                 )
             else:
                 await self.bot.send_message(
@@ -801,6 +820,40 @@ class VoiceOrchestrator:
                 event.chat_id,
                 "🔄 Please try again.",
             )
+
+    async def _handle_pref_callback(self, event: TelegramEvent, value: str) -> None:
+        """Handle pref: callbacks for preferences."""
+        from src.services.telegram.keyboards import build_preferences_keyboard
+        
+        if value == "simple":
+            self._simplified_ui = True
+            if self.ui_service:
+                self.ui_service.simplified = True
+            await self.bot.send_message(
+                event.chat_id,
+                "✓ Interface simplificada ativada.",
+            )
+        elif value == "normal":
+            self._simplified_ui = False
+            if self.ui_service:
+                self.ui_service.simplified = False
+            await self.bot.send_message(
+                event.chat_id,
+                "✅ Interface normal ativada.",
+            )
+        elif value == "toggle":
+            self._simplified_ui = not self._simplified_ui
+            if self.ui_service:
+                self.ui_service.simplified = self._simplified_ui
+            mode = "simplificada" if self._simplified_ui else "normal"
+            await self.bot.send_message(
+                event.chat_id,
+                f"🔄 Interface alterada para: {mode}",
+            )
+        
+        # Update the keyboard in the original message if possible
+        # (This would require editing the message, which is a nice-to-have)
+        # For now, we just send a confirmation message.
 
     # =========================================================================
     # Search Handlers (006-semantic-session-search)
@@ -1250,6 +1303,7 @@ class VoiceOrchestrator:
     async def _cmd_start(self, event: TelegramEvent) -> None:
         """Handle /start command - create new session."""
         from src.lib.messages import WELCOME_MESSAGE, WELCOME_MESSAGE_SIMPLIFIED
+        from src.services.telegram.keyboards import build_finalize_keyboard
         
         try:
             # T080: Check if this is a first-time user (no session history)
@@ -1322,14 +1376,15 @@ class VoiceOrchestrator:
             # Create new session
             session = self.session_manager.create_session(chat_id=event.chat_id)
 
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 f"✅ *Session Started*\n\n"
                 f"🆔 Session: `{session.id}`\n"
                 f"📁 Status: COLLECTING\n\n"
-                f"Send voice messages to record audio.\n"
-                f"Use /done when finished.",
+                f"Send voice messages to record audio.",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
 
             logger.info(f"Started session {session.id}")
@@ -1551,16 +1606,20 @@ class VoiceOrchestrator:
             )
 
         # Send completion message
+        from src.services.telegram.keyboards import build_transcripts_keyboard
+        
         status_emoji = "✅" if error_count == 0 else "⚠️"
+        keyboard = build_transcripts_keyboard(simplified=self._simplified_ui)
+        
         await self.bot.send_message(
             chat_id,
             f"{status_emoji} *Transcription Complete*\n\n"
             f"🆔 Session: `{session.id}`\n"
             f"✅ Success: {success_count}/{total}\n"
             f"❌ Errors: {error_count}/{total}\n"
-            f"📁 Status: TRANSCRIBED\n\n"
-            f"Use /transcripts to view results.",
+            f"📁 Status: TRANSCRIBED",
             parse_mode="Markdown",
+            reply_markup=keyboard,
         )
 
         logger.info(
@@ -1573,6 +1632,12 @@ class VoiceOrchestrator:
         
         If no session reference provided, uses active session context (US4).
         """
+        from src.services.telegram.keyboards import (
+            build_sessions_list_keyboard,
+            build_finalize_keyboard,
+            build_session_actions_keyboard,
+        )
+
         # Check if a session reference was provided
         session_reference = event.command_args.strip() if event.command_args else ""
         
@@ -1606,6 +1671,18 @@ class VoiceOrchestrator:
             name_display = f"📌 *{escape_markdown(target_session.intelligible_name)}*\n" if target_session.intelligible_name else ""
             is_active = target_session.state == SessionState.COLLECTING
             
+            keyboard = (
+                build_finalize_keyboard(simplified=self._simplified_ui)
+                if is_active
+                else build_session_actions_keyboard(simplified=self._simplified_ui)
+            )
+
+            actions_text = (
+                "• Send voice messages to add audio"
+                if is_active
+                else ""
+            )
+
             await self.bot.send_message(
                 event.chat_id,
                 f"📊 *{'Active ' if is_active else ''}Session*\n\n"
@@ -1614,10 +1691,9 @@ class VoiceOrchestrator:
                 f"📁 Status: {target_session.state.value}\n"
                 f"🎙️ Audio files: {target_session.audio_count}\n"
                 f"📅 Created: {target_session.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
-                f"*Available actions:*\n"
-                + ("• Send voice messages to add audio\n• /done to finalize and transcribe" 
-                   if is_active else "• /transcripts to view transcriptions\n• /list to see files"),
+                f"*Available actions:*\n{actions_text}",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
         else:
             # No active session - provide helpful clarification (US4)
@@ -1661,6 +1737,8 @@ class VoiceOrchestrator:
         
         If no session reference provided, uses active session context.
         """
+        from src.services.telegram.keyboards import build_sessions_list_keyboard
+
         # Check if a specific session reference was provided
         session_reference = event.command_args.strip() if event.command_args else ""
 
@@ -1703,10 +1781,11 @@ class VoiceOrchestrator:
                         break
 
         if not target_session:
+            keyboard = build_sessions_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
-                "❌ No active session found.\n\n"
-                "💡 Send a voice message to start, or use /session <name> to select one.",
+                "❌ No active session found.",
+                reply_markup=keyboard,
             )
             return
 
@@ -1754,6 +1833,8 @@ class VoiceOrchestrator:
 
     async def _cmd_process(self, event: TelegramEvent) -> None:
         """Handle /process command - trigger downstream processing."""
+        from src.services.telegram.keyboards import build_finalize_keyboard, build_files_list_keyboard
+
         if not self.downstream_processor:
             await self.bot.send_message(
                 event.chat_id,
@@ -1794,10 +1875,12 @@ class VoiceOrchestrator:
                     break
 
         if not target_session:
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 "❌ No transcribed session ready for processing.\n\n"
-                "Complete transcription with /done first.",
+                "Complete transcription first.",
+                reply_markup=keyboard,
             )
             return
 
@@ -1824,15 +1907,16 @@ class VoiceOrchestrator:
             # Transition to PROCESSED state
             self.session_manager.transition_state(target_session.id, SessionState.PROCESSED)
 
+            keyboard = build_files_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 f"✅ *Processing Complete*\n\n"
                 f"🆔 Session: `{target_session.id}`\n"
                 f"📁 Status: PROCESSED\n"
                 f"📄 Outputs: {len(outputs)} files\n\n"
-                f"*Generated files:*\n" + "\n".join(f"• `{name}`" for name in output_names) + "\n\n"
-                f"Use /list to see all files, /get <file> to download.",
+                f"*Generated files:*\n" + "\n".join(f"• `{name}`" for name in output_names),
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
 
             logger.info(f"Session {target_session.id} processed successfully")
@@ -1954,7 +2038,7 @@ class VoiceOrchestrator:
         
         Shows all sessions with ID, name, state, and audio count.
         """
-        sessions = self.session_manager.list_sessions(limit=20)
+        sessions = self.session_manager.list_sessions(limit=30)
         
         if not sessions:
             await self.bot.send_message(
@@ -1964,7 +2048,9 @@ class VoiceOrchestrator:
             )
             return
         
-        lines = ["📋 **Todas as Sessões**\n"]
+        lines = [
+            "📋 **Histórico de Sessões**",
+        ]
         
         for session in sessions:
             # Status emoji
@@ -1989,15 +2075,14 @@ class VoiceOrchestrator:
                 f"   🎙️ {session.audio_count} áudio(s) | {session.state.value}\n"
             )
         
-        lines.append("\n**Comandos:**")
-        lines.append("• /reopen <id> - Reabrir sessão")
-        lines.append("• /transcripts - Ver transcrições")
-        lines.append("• /list - Ver arquivos da sessão recente")
+        from src.services.telegram.keyboards import build_sessions_list_actions_keyboard
+        keyboard = build_sessions_list_actions_keyboard(simplified=self._simplified_ui)
         
         await self.bot.send_message(
             event.chat_id,
             "\n".join(lines),
             parse_mode="Markdown",
+            reply_markup=keyboard,
         )
 
     def _format_size(self, size_bytes: int) -> str:
@@ -2011,12 +2096,15 @@ class VoiceOrchestrator:
 
     async def _cmd_get(self, event: TelegramEvent) -> None:
         """Handle /get <filename> command - retrieve specific file."""
+        from src.services.telegram.keyboards import build_files_list_keyboard
+
         if not event.command_args:
+            keyboard = build_files_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 "❓ Usage: /get <filepath>\n\n"
-                "Example: /get transcripts/001_audio.txt\n\n"
-                "Use /list to see available files.",
+                "Example: /get transcripts/001_audio.txt",
+                reply_markup=keyboard,
             )
             return
 
@@ -2048,10 +2136,12 @@ class VoiceOrchestrator:
             return
 
         if not file_path.exists() or not file_path.is_file():
+            keyboard = build_files_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
-                f"❌ File not found: `{escape_markdown(filename)}`\n\nUse /list to see available files.",
+                f"❌ File not found: `{escape_markdown(filename)}`",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
             return
 
@@ -2071,6 +2161,8 @@ class VoiceOrchestrator:
 
     async def _cmd_session(self, event: TelegramEvent) -> None:
         """Handle /session [reference] - find and activate session by natural language reference."""
+        from src.services.telegram.keyboards import build_sessions_list_keyboard, build_session_actions_keyboard
+
         reference = event.command_args.strip() if event.command_args else ""
 
         # Get active session ID for context
@@ -2082,11 +2174,12 @@ class VoiceOrchestrator:
 
         if match.match_type == MatchType.NOT_FOUND:
             # No match found
+            keyboard = build_sessions_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 "❌ No matching session found.\n\n"
-                "💡 Try using /list to see available sessions, "
-                "or use a different search term.",
+                "💡 Try using a different search term.",
+                reply_markup=keyboard,
             )
             return
 
@@ -2114,6 +2207,8 @@ class VoiceOrchestrator:
         match_label = match_type_labels.get(match.match_type, str(match.match_type.value))
 
         session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+        
+        keyboard = build_session_actions_keyboard(simplified=self._simplified_ui)
         await self.bot.send_message(
             event.chat_id,
             f"✅ Found session ({match_label})\n\n"
@@ -2121,51 +2216,53 @@ class VoiceOrchestrator:
             f"🆔 ID: `{session.id}`\n"
             f"📅 Created: {session.created_at}\n"
             f"📊 Status: {session.state.value}\n"
-            f"🎙️ Audios: {session.audio_count}\n\n"
-            f"💡 Use /list to see files, /transcripts to view transcripts.",
+            f"🎙️ Audios: {session.audio_count}",
             parse_mode="Markdown",
+            reply_markup=keyboard,
         )
 
         logger.info(f"Resolved '{reference}' to session {session.id} via {match.match_type.value}")
 
-    async def _cmd_reopen(self, event: TelegramEvent) -> None:
+    async def _cmd_reopen(self, event: TelegramEvent, override_args: Optional[str] = None) -> None:
         """Handle /reopen [session_id] - reopen a finalized session to add more audio.
         
         Transitions TRANSCRIBED/PROCESSED/READY sessions back to COLLECTING state,
         allowing the user to send more voice messages.
         
         Usage:
-            /reopen              - Reopen most recent reopenable session
+            /reopen              - Show list of reopenable sessions
             /reopen <session_id>  - Reopen specific session by ID
             /reopen <name>        - Reopen session by name match
         """
-        from src.services.telegram.keyboards import build_sessions_list_keyboard
+        from src.services.telegram.keyboards import build_reopen_sessions_keyboard
 
-        reference = (event.command_args or "").strip()
+        reference = (override_args if override_args is not None else (event.command_args or "")).strip()
         session = None
         active = self.session_manager.get_active_session()
         
         if not reference:
-            # No reference - find most recent reopenable session
+            # No reference - list reopenable sessions for selection
             sessions = self.session_manager.list_sessions(limit=20)
             allowed_states = [SessionState.TRANSCRIBED, SessionState.PROCESSED, SessionState.READY]
             
-            for s in sessions:
-                if s.state in allowed_states:
-                    session = s
-                    break
+            reopenable_sessions = [s for s in sessions if s.state in allowed_states]
             
-            if not session:
-                # Constrói o teclado (respeitando a preferência de UI simplificada)
-                keyboard = build_sessions_list_keyboard(simplified=self._simplified_ui)
-
+            if not reopenable_sessions:
                 await self.bot.send_message(
                     event.chat_id,
                     "❌ Nenhuma sessão disponível para reabrir.",
                     parse_mode="Markdown",
-                    reply_markup=keyboard,
                 )
                 return
+            
+            # Show selection keyboard
+            keyboard = build_reopen_sessions_keyboard(reopenable_sessions[:5]) # Limit to 5 for UI clarity
+            await self.bot.send_message(
+                event.chat_id,
+                "📋 Selecione a sessão que deseja reabrir 👇",
+                reply_markup=keyboard,
+            )
+            return
         else:
             # Resolve session reference
             match = self.session_manager.resolve_session_reference(
@@ -2221,11 +2318,13 @@ class VoiceOrchestrator:
         # Check for conflict with current active session
         if active and active.id != session.id and active.audio_count > 0:
             active_name = escape_markdown(active.intelligible_name) if active.intelligible_name else active.id
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 f"⚠️ Já existe uma sessão ativa: *{active_name}*\n\n"
-                f"💡 /done para finalizar a sessão atual antes de reabrir outra.",
+                f"Finalize a sessão atual antes de reabrir outra.",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
             return
         
@@ -2235,6 +2334,7 @@ class VoiceOrchestrator:
             self.session_manager.transition_state(session.id, SessionState.COLLECTING)
             
             session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 f"✅ **Sessão Reaberta**\n\n"
@@ -2242,9 +2342,9 @@ class VoiceOrchestrator:
                 f"🆔 ID: `{session.id}`\n"
                 f"🎙️ Áudios existentes: {session.audio_count}\n"
                 f"📊 Estado: {old_state.value} → COLLECTING\n\n"
-                f"Envie mensagens de voz para adicionar mais áudio.\n"
-                f"💡 /done quando terminar.",
+                f"Envie mensagens de voz para adicionar mais áudio.",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
             
             logger.info(f"Reopened session {session.id}: {old_state.value} → COLLECTING")
@@ -2303,16 +2403,17 @@ class VoiceOrchestrator:
             )
         else:
             # Show current preferences
+            from src.services.telegram.keyboards import build_preferences_keyboard
+            
             mode = "simplificada" if self._simplified_ui else "normal"
+            keyboard = build_preferences_keyboard(simplified=self._simplified_ui)
+            
             await self.bot.send_message(
                 event.chat_id,
                 f"⚙️ **Preferências Atuais**\n\n"
-                f"Interface: {mode}\n\n"
-                f"**Comandos:**\n"
-                f"/preferences simple - Ativar modo simplificado\n"
-                f"/preferences normal - Ativar modo normal\n"
-                f"/preferences toggle - Alternar modo",
+                f"Interface: {mode}",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
         
         logger.debug(f"Preferences updated: simplified_ui={self._simplified_ui}")
@@ -2591,6 +2692,7 @@ class VoiceOrchestrator:
         """Handle voice message - download and add to session (with auto-creation)."""
         from src.lib.exceptions import AudioPersistenceError
         from src.lib.audio_validation import validate_audio
+        from src.services.telegram.keyboards import build_finalize_keyboard
 
         # First, download the audio from Telegram
         try:
@@ -2625,11 +2727,13 @@ class VoiceOrchestrator:
             warning_message = (
                 f"⚠️ {validation_result.message}\n\n"
                 "The audio was still saved, but transcription may fail.\n"
-                "Send another voice message or use /done to finalize."
+                "Send another voice message."
             )
+            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
                 warning_message,
+                reply_markup=keyboard,
             )
             # Don't return - continue to save the audio anyway
             # User can decide whether to keep it
@@ -2660,6 +2764,7 @@ class VoiceOrchestrator:
                 else:
                     # Fallback to plain text message
                     session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
+                    keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
                     await self.bot.send_message(
                         event.chat_id,
                         f"✅ Session created: *{session_name}*\n\n"
@@ -2667,8 +2772,9 @@ class VoiceOrchestrator:
                         f"   📁 {escaped_filename}\n"
                         f"   ⏱️ Duration: {duration_str}\n"
                         f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
-                        f"Send more audio or /done when finished.",
+                        f"Send more audio.",
                         parse_mode="Markdown",
+                        reply_markup=keyboard,
                     )
             else:
                 # Added to existing session
@@ -2682,12 +2788,14 @@ class VoiceOrchestrator:
                     )
                 else:
                     # Fallback to plain text message  
+                    keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
                     await self.bot.send_message(
                         event.chat_id,
                         f"✅ Audio #{audio_entry.sequence} received\n"
                         f"   📁 {escaped_filename}\n"
                         f"   ⏱️ Duration: {duration_str}\n"
                         f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
+                        reply_markup=keyboard,
                     )
 
             # Save checkpoint for crash recovery (T031a)

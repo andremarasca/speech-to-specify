@@ -302,6 +302,26 @@ BUTTON_TRY_AGAIN_SIMPLIFIED = "Tentar Novamente"
 BUTTON_SESSIONS_LIST = "📋 Ver todas as sessões"
 BUTTON_SESSIONS_LIST_SIMPLIFIED = "Ver todas as sessões"
 
+BUTTON_FILES_LIST = "📂 Listar Arquivos"
+BUTTON_FILES_LIST_SIMPLIFIED = "Listar Arquivos"
+
+BUTTON_TRANSCRIPTS = "📝 Ver Transcrições"
+BUTTON_TRANSCRIPTS_SIMPLIFIED = "Ver Transcrições"
+
+BUTTON_PREF_SIMPLE = "Simplificado"
+BUTTON_PREF_SIMPLE_SIMPLIFIED = "Simplificado"
+
+BUTTON_PREF_NORMAL = "Normal"
+BUTTON_PREF_NORMAL_SIMPLIFIED = "Normal"
+
+BUTTON_PREF_TOGGLE = "Alternar"
+BUTTON_PREF_TOGGLE_SIMPLIFIED = "Alternar"
+
+BUTTON_REOPEN_MENU = "🔓 Reabrir Sessão"
+BUTTON_REOPEN_MENU_SIMPLIFIED = "Reabrir Sessão"
+
+BUTTON_REOPEN_SESSION_PREFIX = "🔘"
+
 # =============================================================================
 # Recovery Prompts
 # =============================================================================

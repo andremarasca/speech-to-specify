@@ -57,6 +57,23 @@ from src.lib.messages import (
     BUTTON_TRY_AGAIN_SIMPLIFIED,
     BUTTON_SESSIONS_LIST,
     BUTTON_SESSIONS_LIST_SIMPLIFIED,
+    BUTTON_FILES_LIST,
+    BUTTON_FILES_LIST_SIMPLIFIED,
+    BUTTON_TRANSCRIPTS,
+    BUTTON_TRANSCRIPTS_SIMPLIFIED,
+    BUTTON_PREF_SIMPLE,
+    BUTTON_PREF_SIMPLE_SIMPLIFIED,
+    BUTTON_PREF_NORMAL,
+    BUTTON_PREF_NORMAL_SIMPLIFIED,
+    BUTTON_PREF_TOGGLE,
+    BUTTON_PREF_TOGGLE_SIMPLIFIED,
+    BUTTON_REOPEN_SESSION_PREFIX,
+    BUTTON_REOPEN_MENU,
+    BUTTON_REOPEN_MENU_SIMPLIFIED,
+    BUTTON_FINALIZE,
+    BUTTON_FINALIZE_SIMPLIFIED,
+    BUTTON_VIEW_FULL,
+    BUTTON_VIEW_FULL_SIMPLIFIED,
 )
 
 
@@ -452,3 +469,90 @@ def build_sessions_list_keyboard(simplified: bool = False) -> InlineKeyboardMark
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(label, callback_data="action:list_sessions")]
     ])
+
+
+def build_files_list_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado com link para listar arquivos."""
+    label = BUTTON_FILES_LIST_SIMPLIFIED if simplified else BUTTON_FILES_LIST
+    
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data="action:list_files")]
+    ])
+
+
+def build_session_actions_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado com ações de sessão (Listar Arquivos, Ver Transcrições)."""
+    files_label = BUTTON_FILES_LIST_SIMPLIFIED if simplified else BUTTON_FILES_LIST
+    transcripts_label = BUTTON_TRANSCRIPTS_SIMPLIFIED if simplified else BUTTON_TRANSCRIPTS
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(files_label, callback_data="action:list_files"),
+            InlineKeyboardButton(transcripts_label, callback_data="action:view_full"),
+        ]
+    ])
+
+
+def build_finalize_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado apenas com botão de finalizar."""
+    label = BUTTON_FINALIZE_SIMPLIFIED if simplified else BUTTON_FINALIZE
+    
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data="action:finalize")]
+    ])
+
+
+def build_transcripts_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado com botão de ver transcrições."""
+    label = BUTTON_TRANSCRIPTS_SIMPLIFIED if simplified else BUTTON_TRANSCRIPTS
+    
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data="action:view_full")]
+    ])
+
+
+def build_preferences_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado de preferências."""
+    simple = BUTTON_PREF_SIMPLE_SIMPLIFIED if simplified else BUTTON_PREF_SIMPLE
+    normal = BUTTON_PREF_NORMAL_SIMPLIFIED if simplified else BUTTON_PREF_NORMAL
+    toggle = BUTTON_PREF_TOGGLE_SIMPLIFIED if simplified else BUTTON_PREF_TOGGLE
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(simple, callback_data="pref:simple"),
+            InlineKeyboardButton(normal, callback_data="pref:normal"),
+        ],
+        [InlineKeyboardButton(toggle, callback_data="pref:toggle")]
+    ])
+
+
+def build_sessions_list_actions_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
+    """Constrói teclado de ações gerais para lista de sessões."""
+    transcripts = BUTTON_TRANSCRIPTS_SIMPLIFIED if simplified else BUTTON_TRANSCRIPTS
+    files = BUTTON_FILES_LIST_SIMPLIFIED if simplified else BUTTON_FILES_LIST
+    reopen = BUTTON_REOPEN_MENU_SIMPLIFIED if simplified else BUTTON_REOPEN_MENU
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(transcripts, callback_data="action:view_full"),
+            InlineKeyboardButton(files, callback_data="action:list_files"),
+        ],
+        [
+            InlineKeyboardButton(reopen, callback_data="action:reopen_menu"),
+        ]
+    ])
+
+
+def build_reopen_sessions_keyboard(sessions: list) -> InlineKeyboardMarkup:
+    """
+    Builds an inline keyboard where each button represents a session to reopen.
+    """
+    buttons = []
+    for session in sessions:
+        name = session.intelligible_name if session.intelligible_name else session.id
+        label = f"{BUTTON_REOPEN_SESSION_PREFIX} {name} | {session.audio_count} áudios"
+        buttons.append([
+            InlineKeyboardButton(label, callback_data=f"action:reopen_session:{session.id}")
+        ])
+    
+    return InlineKeyboardMarkup(buttons)
