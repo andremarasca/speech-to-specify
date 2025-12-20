@@ -216,7 +216,9 @@ class VoiceOrchestrator:
             "session": self._cmd_session,
             "preferences": self._cmd_preferences,  # T079: simplified_ui toggle
             "help": self._cmd_help,
-            "search": self._cmd_search,  # 006-semantic-session-search
+            "search": self._cmd_search,  # 006-semantic-session-search (by name)
+            "searchid": self._cmd_search_id,  # Search by session ID
+            "searchtxt": self._cmd_search_txt,  # Search by transcript content
         }
 
         handler = handlers.get(command)
@@ -2102,7 +2104,11 @@ class VoiceOrchestrator:
 • /list - Listar todas as sessões
 • /get <id> - Obter sessão específica
 • /session <id> - Carregar sessão por ID ou nome
-• /search - Buscar sessões por conteúdo
+
+🔍 **Busca (determinística):**
+• /search <nome> - Buscar por nome da sessão
+• /searchid <id> - Buscar por ID da sessão
+• /searchtxt <texto> - Buscar em transcrições
 
 📋 **Resultados:**
 • /transcripts - Ver transcrições completas
@@ -2118,7 +2124,7 @@ class VoiceOrchestrator:
 
 **Dicas:**
 • Você pode enviar múltiplos áudios antes de finalizar
-• Use /search para encontrar sessões antigas
+• Use /searchtxt para encontrar sessões por conteúdo
 • Use /preferences simple para interface sem emojis"""
 
         await self.bot.send_message(
@@ -2128,22 +2134,201 @@ class VoiceOrchestrator:
         )
 
     async def _cmd_search(self, event: TelegramEvent) -> None:
-        """Handle /search [query] command - search sessions by content.
+        """Handle /search [query] command - search sessions by NAME only.
         
-        006-semantic-session-search: CLI entry point for search.
+        Deterministic search by session name (intelligible_name).
         
         Usage:
-            /search          - Initiate search flow (prompts for query)
-            /search <query>  - Search with provided query
+            /search <name>  - Search sessions by name
         """
         query = (event.command_args or "").strip()
         
-        if query:
-            # Direct search with provided query - use _process_search_query
-            await self._process_search_query(event, query)
+        if not query:
+            await self.bot.send_message(
+                event.chat_id,
+                "🔍 **Busca por Nome**\n\n"
+                "Uso: `/search <nome>`\n\n"
+                "Outros comandos:\n"
+                "• `/searchid <id>` - busca por ID\n"
+                "• `/searchtxt <texto>` - busca em transcrições",
+                parse_mode="Markdown",
+            )
+            return
+        
+        await self._execute_search(event.chat_id, query, search_type="name")
+
+    async def _cmd_search_id(self, event: TelegramEvent) -> None:
+        """Handle /searchid [id] command - search sessions by ID.
+        
+        Deterministic search by session ID.
+        
+        Usage:
+            /searchid <id>  - Search sessions by ID substring
+        """
+        query = (event.command_args or "").strip()
+        
+        if not query:
+            await self.bot.send_message(
+                event.chat_id,
+                "🔍 **Busca por ID**\n\n"
+                "Uso: `/searchid <id>`\n\n"
+                "Exemplo: `/searchid 2025-12-19`",
+                parse_mode="Markdown",
+            )
+            return
+        
+        await self._execute_search(event.chat_id, query, search_type="id")
+
+    async def _cmd_search_txt(self, event: TelegramEvent) -> None:
+        """Handle /searchtxt [text] command - search sessions by transcript content.
+        
+        Deterministic search in transcript files.
+        
+        Usage:
+            /searchtxt <texto>  - Search in transcript content
+        """
+        query = (event.command_args or "").strip()
+        
+        if not query:
+            await self.bot.send_message(
+                event.chat_id,
+                "🔍 **Busca em Transcrições**\n\n"
+                "Uso: `/searchtxt <texto>`\n\n"
+                "Exemplo: `/searchtxt mensageria`",
+                parse_mode="Markdown",
+            )
+            return
+        
+        await self._execute_search(event.chat_id, query, search_type="transcript")
+
+    async def _execute_search(
+        self, 
+        chat_id: int, 
+        query: str, 
+        search_type: str
+    ) -> None:
+        """Execute deterministic search based on type.
+        
+        Args:
+            chat_id: Telegram chat ID
+            query: Search query
+            search_type: "name", "id", or "transcript"
+        """
+        from src.services.telegram.keyboards import (
+            build_search_results_keyboard,
+            build_no_results_keyboard,
+        )
+        
+        if not self.search_service:
+            await self.bot.send_message(
+                chat_id,
+                "❌ Serviço de busca não disponível.",
+            )
+            return
+        
+        # Get all sessions
+        sessions = self.session_manager.list_sessions(limit=100)
+        query_lower = query.lower()
+        results = []
+        
+        for session in sessions:
+            score = 0.0
+            
+            if search_type == "name":
+                # Search by name only
+                name = (session.intelligible_name or "").lower()
+                if query_lower in name:
+                    score = 0.9
+                elif any(word in name for word in query_lower.split()):
+                    score = 0.6
+                    
+            elif search_type == "id":
+                # Search by ID only
+                if query_lower in session.id.lower():
+                    score = 0.9
+                    
+            elif search_type == "transcript":
+                # Search in transcripts only
+                score = self._search_session_transcripts(session, query_lower)
+            
+            if score > 0:
+                results.append({
+                    "session": session,
+                    "score": score,
+                })
+        
+        # Sort by score and limit
+        results.sort(key=lambda r: r["score"], reverse=True)
+        results = results[:5]
+        
+        # Build result message
+        type_labels = {
+            "name": "nome",
+            "id": "ID", 
+            "transcript": "transcrições",
+        }
+        
+        if results:
+            from src.models.search_result import SearchResult
+            from src.models.session import MatchType
+            
+            search_results = [
+                SearchResult(
+                    session_id=r["session"].id,
+                    session_name=r["session"].intelligible_name or r["session"].id,
+                    relevance_score=r["score"],
+                    match_type=MatchType.EXACT_SUBSTRING,
+                    session_created_at=r["session"].created_at,
+                    total_audio_duration=r["session"].total_audio_duration,
+                    audio_count=r["session"].audio_count,
+                )
+                for r in results
+            ]
+            
+            keyboard = build_search_results_keyboard(
+                search_results,
+                simplified=self._simplified_ui,
+            )
+            
+            await self.bot.send_message(
+                chat_id,
+                f"🔍 **Resultados ({type_labels[search_type]})**\n\n"
+                f"Encontradas {len(results)} sessão(ões) para \"{query}\":",
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
         else:
-            # Initiate search flow - prompt for query (same as action:search)
-            await self._handle_search_action(event)
+            keyboard = build_no_results_keyboard(simplified=self._simplified_ui)
+            await self.bot.send_message(
+                chat_id,
+                f"🔍 Nenhuma sessão encontrada por {type_labels[search_type]}.\n\n"
+                f"Consulta: \"{query}\"",
+                reply_markup=keyboard,
+            )
+
+    def _search_session_transcripts(self, session, query_lower: str) -> float:
+        """Search transcript files for query match.
+        
+        Returns score 0.0-0.9 based on match quality.
+        """
+        try:
+            transcripts_dir = session.transcripts_path(self.session_manager.sessions_dir)
+            
+            if not transcripts_dir.exists():
+                return 0.0
+            
+            for transcript_file in transcripts_dir.glob("*.txt"):
+                try:
+                    content = transcript_file.read_text(encoding="utf-8").lower()
+                    if query_lower in content:
+                        return 0.9  # Exact match in transcript
+                except Exception:
+                    continue
+            
+            return 0.0
+            
+        except Exception:
+            return 0.0
 
     async def _show_ambiguous_candidates(
         self,
