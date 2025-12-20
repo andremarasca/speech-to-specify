@@ -309,6 +309,11 @@ class VoiceOrchestrator:
             # Show reopen menu (list of sessions)
             # Simulate /reopen command (no args)
             await self._cmd_reopen(event, override_args="")
+        elif action.startswith("get_file:"):
+            # Download specific file from button click
+            file_path = action.split(":", 1)[1]
+            # Simulate /get <path> command
+            await self._cmd_get(event, override_args=file_path)
         elif action == "cancel":
             # Cancel active session without transcription
             active = self.session_manager.get_active_session()
@@ -2023,14 +2028,19 @@ class VoiceOrchestrator:
             file_lines.append(f"{emoji} `{escape_markdown(name)}` ({size_str})")
 
         session_name = escape_markdown(target_session.intelligible_name) if target_session.intelligible_name else target_session.id
+        
+        from src.services.telegram.keyboards import build_file_list_keyboard
+        keyboard = build_file_list_keyboard(files)
+
         await self.bot.send_message(
             event.chat_id,
             f"📂 *{session_name}*\n"
             f"🆔 Session: `{target_session.id}`\n"
             f"Status: {target_session.state.value}\n\n" +
             "\n".join(file_lines) +
-            "\n\n💡 Use /get <path> to download a file.",
+            "\n\n👇 Clique em um arquivo para baixar:",
             parse_mode="Markdown",
+            reply_markup=keyboard,
         )
 
     async def _cmd_sessions(self, event: TelegramEvent) -> None:
@@ -2094,11 +2104,13 @@ class VoiceOrchestrator:
         else:
             return f"{size_bytes / (1024 * 1024):.1f} MB"
 
-    async def _cmd_get(self, event: TelegramEvent) -> None:
+    async def _cmd_get(self, event: TelegramEvent, override_args: Optional[str] = None) -> None:
         """Handle /get <filename> command - retrieve specific file."""
         from src.services.telegram.keyboards import build_files_list_keyboard
 
-        if not event.command_args:
+        args = override_args if override_args is not None else event.command_args
+
+        if not args:
             keyboard = build_files_list_keyboard(simplified=self._simplified_ui)
             await self.bot.send_message(
                 event.chat_id,
@@ -2108,7 +2120,7 @@ class VoiceOrchestrator:
             )
             return
 
-        filename = event.command_args.strip()
+        filename = args.strip()
 
         # Find most recent session
         sessions = self.session_manager.list_sessions(limit=10)
@@ -2234,7 +2246,7 @@ class VoiceOrchestrator:
             /reopen <session_id>  - Reopen specific session by ID
             /reopen <name>        - Reopen session by name match
         """
-        from src.services.telegram.keyboards import build_reopen_sessions_keyboard
+        from src.services.telegram.keyboards import build_reopen_sessions_keyboard, build_finalize_keyboard
 
         reference = (override_args if override_args is not None else (event.command_args or "")).strip()
         session = None

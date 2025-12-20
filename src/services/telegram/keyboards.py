@@ -556,3 +556,35 @@ def build_reopen_sessions_keyboard(sessions: list) -> InlineKeyboardMarkup:
         ])
     
     return InlineKeyboardMarkup(buttons)
+
+
+def build_file_list_keyboard(files: list[tuple[str, str, int]]) -> InlineKeyboardMarkup:
+    """
+    Builds an inline keyboard where each button represents a file to download.
+    
+    Args:
+        files: List of tuples (emoji, relative_path, size_bytes)
+    """
+    buttons = []
+    for emoji, path, size in files:
+        # Truncate path if too long for button
+        display_name = path.split('/')[-1]
+        label = f"{emoji} {display_name}"
+        
+        # Callback data limit is 64 bytes. We need to be careful.
+        # We'll use a prefix 'get:' and the path.
+        # If path is too long, we might need a different strategy (e.g. index),
+        # but for now let's try direct path.
+        callback_data = f"action:get_file:{path}"
+        
+        # Telegram callback_data limit check (64 bytes)
+        if len(callback_data.encode('utf-8')) > 64:
+            # Fallback: just show name, user has to type /get
+            # Or implement a file ID mapping system (too complex for now)
+            continue
+            
+        buttons.append([
+            InlineKeyboardButton(label, callback_data=callback_data)
+        ])
+    
+    return InlineKeyboardMarkup(buttons)
