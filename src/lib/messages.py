@@ -235,6 +235,8 @@ SEARCH_EMPTY_QUERY_SIMPLIFIED = "Por favor, descreva o tema da sessão."
 
 SEARCH_SESSION_LOAD_ERROR = "❌ Não foi possível carregar a sessão.\n\nTente novamente ou escolha outra."
 SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED = "Erro ao carregar sessão. Tente novamente."
+SEARCH_SESSION_EXPIRED = "⚠️ Teclado expirado. Envie /search novamente."
+SEARCH_SESSION_EXPIRED_SIMPLIFIED = "Teclado expirado. Envie /search."
 
 # =============================================================================
 # Button Labels

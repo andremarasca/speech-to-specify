@@ -301,11 +301,11 @@ def build_recovery_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
     
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(resume, callback_data="action:resume_session"),
-            InlineKeyboardButton(finalize, callback_data="action:finalize_orphan"),
+            InlineKeyboardButton(resume, callback_data="recover:resume_session"),
+            InlineKeyboardButton(finalize, callback_data="recover:finalize_orphan"),
         ],
         [
-            InlineKeyboardButton(discard, callback_data="action:discard_orphan"),
+            InlineKeyboardButton(discard, callback_data="recover:discard_orphan"),
             InlineKeyboardButton(help_btn, callback_data="action:help"),
         ],
     ])

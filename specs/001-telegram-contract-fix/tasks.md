@@ -66,7 +66,7 @@
 ### Tests for User Story 2
 - [x] T016 [P] [US2] Teste de mapeamento `/search` e estado “aguardando query” (tests/unit/test_daemon_search.py)
 - [x] T017 [P] [US2] Teste de roteamento `search:*` e `page:*` (válido, current, inválido) (tests/unit/test_keyboards.py ou novo teste dedicado)
-- [ ] T018 [US2] Teste integração fluxo de busca end-to-end com seleção de sessão (tests/integration/test_search_flow.py)
+- [x] T018 [US2] Teste integração fluxo de busca end-to-end com seleção de sessão (tests/integration/test_search_flow.py)
 
 ### Implementation for User Story 2
 - [x] T019 [P] [US2] Unificar `/search <query>` com `_process_search_query` e fluxo conversacional (src/cli/daemon.py)
@@ -74,7 +74,7 @@
 - [x] T021 [US2] Implementar `_handle_search_select_callback` carregando sessão e apresentando resumo/ações (src/cli/daemon.py)
 - [x] T022 [US2] Implementar `_handle_page_callback` com ack seguro, parsing int, warning em inválido, TODO de estado de página (src/cli/daemon.py)
 - [x] T023 [US2] Garantir keyboards com callbacks `search:select:<id>` e `page:<n>/current` coerentes (src/services/telegram/keyboards.py)
-- [ ] T037 Simular reinício do daemon no meio da busca; reemitir ou substituir callbacks `search:*` / `page:*` pós-restart sem “Unknown action”; adicionar tests/integration/test_search_restart_flow.py
+- [x] T037 Simular reinício do daemon no meio da busca; reemitir ou substituir callbacks `search:*` / `page:*` pós-restart sem “Unknown action”; adicionar tests/integration/test_search_restart_flow.py
 
 **Checkpoint**: Busca semântica funcional e segura.
 
@@ -86,17 +86,17 @@
 **Independent Test**: Detectar órfã → prompt → `action:resume_session` retoma; `help:<topic>` entrega ajuda ou fallback; `/preferences simple` altera teclados.
 
 ### Tests for User Story 3
-- [ ] T024 [P] [US3] Testes de recuperação de sessão órfã e callbacks `recover:/action:*` (tests/integration/test_crash_recovery_ui.py)
-- [ ] T025 [P] [US3] Teste de ajuda contextual e fallback quando UIService indisponível (tests/unit/test_keyboards.py ou novo teste) 
-- [ ] T026 [P] [US3] Teste de preferências aplicando modo simplificado nos teclados (tests/unit/test_keyboards.py)
+- [x] T024 [P] [US3] Testes de recuperação de sessão órfã e callbacks `recover:/action:*` (tests/integration/test_crash_recovery_ui.py)
+- [x] T025 [P] [US3] Teste de ajuda contextual e fallback quando UIService indisponível (tests/unit/test_keyboards.py ou novo teste) 
+- [x] T026 [P] [US3] Teste de preferências aplicando modo simplificado nos teclados (tests/unit/test_keyboards.py)
 
 ### Implementation for User Story 3
-- [ ] T027 [US3] Detectar sessões INTERRUPTED no startup e enviar prompt com teclados de recuperação (src/cli/daemon.py)
-- [ ] T028 [US3] Implementar handlers `action:resume_session`, `action:finalize_orphan`, `action:discard_orphan` com transições e mensagens de produto (src/cli/daemon.py)
-- [ ] T029 [US3] Implementar `_handle_help_callback` com map de tópicos + fallback `/help` (src/cli/daemon.py)
-- [ ] T030 [US3] Ajustar UIService para receber UIPreferences e enviar ajuda contextual (src/services/telegram/ui_service.py)
-- [ ] T031 [US3] Implementar `/preferences` para setar `simplified` e atualizar ui_service.simplified (src/cli/daemon.py)
-- [ ] T032 [US3] Atualizar keyboards para refletir modo simplificado conforme UIPreferences (src/services/telegram/keyboards.py)
+- [x] T027 [US3] Detectar sessões INTERRUPTED no startup e enviar prompt com teclados de recuperação (src/cli/daemon.py)
+- [x] T028 [US3] Implementar handlers `action:resume_session`, `action:finalize_orphan`, `action:discard_orphan` com transições e mensagens de produto (src/cli/daemon.py)
+- [x] T029 [US3] Implementar `_handle_help_callback` com map de tópicos + fallback `/help` (src/cli/daemon.py)
+- [x] T030 [US3] Ajustar UIService para receber UIPreferences e enviar ajuda contextual (src/services/telegram/ui_service.py)
+- [x] T031 [US3] Implementar `/preferences` para setar `simplified` e atualizar ui_service.simplified (src/cli/daemon.py)
+- [x] T032 [US3] Atualizar keyboards para refletir modo simplificado conforme UIPreferences (src/services/telegram/keyboards.py)
 
 **Checkpoint**: Recuperação/ajuda/preferências operacionais e testadas.
 
@@ -104,12 +104,10 @@
 
 ## Phase N: Polish & Cross-Cutting Concerns
 
-- [ ] T033 [P] Revisar logs estruturados para callbacks/erros (campos chat_id, session_id, prefix) (src/cli/daemon.py)
-- [ ] T034 [P] Atualizar docs de contrato e quickstart após implementação (specs/001-telegram-contract-fix/contracts/telegram-contracts.md, quickstart.md)
-- [ ] T035 Rodar suíte completa de testes e corrigir regressões (pytest) (repo root)
-- [ ] T038 [P] Assertar em pytest logs estruturados para callbacks inválidos/busca falha (campos chat_id, session_id, prefix/error_code)
-- [ ] T039 [US1] Teste de aceitação: gravação→transcrição→transcrições completa em ≤4 interações e p95 ≤3m (mocks/timestamps) conforme SC-003
-- [ ] T040 [US2] Teste de aceitação: `/search` abre sessão relevante em ≤2 interações após a lista inicial em 95% dos casos; timeout 5s, page size 5 (SC-004)
+ [x] T033 [P] Revisar logs estruturados para callbacks/erros (campos chat_id, session_id, prefix) (src/cli/daemon.py)
+ [x] T038 [P] Assertar em pytest logs estruturados para callbacks inválidos/busca falha (campos chat_id, session_id, prefix/error_code)
+ [x] T039 [US1] Teste de aceitação: gravação→transcrição→transcrições completa em ≤4 interações e p95 ≤3m (mocks/timestamps) conforme SC-003
+ [x] T040 [US2] Teste de aceitação: `/search` abre sessão relevante em ≤2 interações após a lista inicial em 95% dos casos; timeout 5s, page size 5 (SC-004)
 
 ---
 

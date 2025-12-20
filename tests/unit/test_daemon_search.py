@@ -4,10 +4,12 @@ Per T031-T034 from 006-semantic-session-search tasks.md.
 Tests the conversational state management for the [Buscar] button flow.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+import logging
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.cli.daemon import VoiceOrchestrator
 from src.services.telegram.adapter import TelegramEvent
@@ -213,6 +215,33 @@ class TestSearchQueryClearsState:
         mock_bot.send_message.assert_called()
         assert "busca" in str(mock_bot.send_message.call_args).lower()
 
+    @pytest.mark.asyncio
+    async def test_search_query_timeout_logs_structured_fields(
+        self, orchestrator, text_event, caplog
+    ):
+        """Ensure timeout logs include chat_id, query, and error_code."""
+        chat_id = text_event.chat_id
+        orchestrator._awaiting_search_query[chat_id] = True
+        orchestrator._search_config.search_timeout_seconds = 0.01
+
+        def slow_blocking_search(**kwargs):
+            import time
+            time.sleep(0.05)
+            return MagicMock(results=[])
+
+        orchestrator.search_service.search.side_effect = slow_blocking_search
+
+        with caplog.at_level(logging.WARNING):
+            await orchestrator._process_search_query(text_event, text_event.text)
+
+        record = next(
+            (r for r in caplog.records if getattr(r, "error_code", None) == "search_timeout"),
+            None,
+        )
+        assert record is not None
+        assert getattr(record, "chat_id", None) == chat_id
+        assert getattr(record, "query", None)[:5] == text_event.text[:5]
+
 
 class TestSearchTimeoutClearsState:
     """T034: Test that search timeout clears awaiting state."""
@@ -372,6 +401,31 @@ class TestSessionRestoration:
         mock_bot.send_message.assert_called_once()
         call_kwargs = mock_bot.send_message.call_args
         assert "reply_markup" in str(call_kwargs)
+
+    @pytest.mark.asyncio
+    async def test_restore_session_missing_sends_expired_message(
+        self, orchestrator, mock_bot, mock_session_manager, caplog
+    ):
+        """Handle stale callbacks gracefully after restart."""
+        chat_id = 12345
+        session_id = "missing_session"
+
+        mock_session_manager.storage.load.return_value = None
+
+        with caplog.at_level(logging.WARNING):
+            await orchestrator._restore_session(chat_id, session_id)
+
+        mock_bot.send_message.assert_called_once()
+        call_text = str(mock_bot.send_message.call_args).lower()
+        assert "expir" in call_text or "/search" in call_text
+
+        record = next(
+            (r for r in caplog.records if getattr(r, "error_code", None) == "search_session_missing"),
+            None,
+        )
+        assert record is not None
+        assert getattr(record, "session_id", None) == session_id
+        assert getattr(record, "chat_id", None) == chat_id
 
 
 class TestCloseAction:

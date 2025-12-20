@@ -318,6 +318,52 @@ class TestCallbackRouting:
 
         handler.assert_awaited_once_with(event, expected_value)
 
+
+class TestHelpAndPreferences:
+    """US3: Help fallback and preferences handling."""
+
+    @pytest.fixture()
+    def orchestrator(self) -> VoiceOrchestrator:
+        bot = MagicMock()
+        bot.send_message = AsyncMock()
+        return VoiceOrchestrator(bot=bot, session_manager=MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_help_unknown_topic_falls_back_to_help(self):
+        bot = MagicMock()
+        bot.send_message = AsyncMock()
+
+        orchestrator = VoiceOrchestrator(bot=bot, session_manager=MagicMock())
+        orchestrator._help_fallback_enabled = True
+
+        fallback = AsyncMock()
+        orchestrator._cmd_help = fallback
+
+        event = TelegramEvent.callback(chat_id=123456, callback_data="help:unknown_topic")
+        await orchestrator._handle_help_callback(event, "unknown_topic")
+
+        fallback.assert_awaited_once_with(event)
+
+    @pytest.mark.asyncio
+    async def test_preferences_toggle_updates_ui_service(self):
+        bot = MagicMock()
+        bot.send_message = AsyncMock()
+
+        orchestrator = VoiceOrchestrator(bot=bot, session_manager=MagicMock())
+        orchestrator.ui_service = MagicMock()
+
+        # Enable simplified
+        event_simple = TelegramEvent.command(chat_id=123456, command="preferences", args="simple")
+        await orchestrator._cmd_preferences(event_simple)
+        assert orchestrator._simplified_ui is True
+        assert orchestrator.ui_service.simplified is True
+
+        # Back to normal
+        event_normal = TelegramEvent.command(chat_id=123456, command="preferences", args="normal")
+        await orchestrator._cmd_preferences(event_normal)
+        assert orchestrator._simplified_ui is False
+        assert orchestrator.ui_service.simplified is False
+
     def test_unknown_callback_logs_warning(self, orchestrator: VoiceOrchestrator, caplog: pytest.LogCaptureFixture):
         event = TelegramEvent.callback(chat_id=123456, callback_data="noop")
 
@@ -325,3 +371,15 @@ class TestCallbackRouting:
             asyncio.run(orchestrator._handle_callback(event))
 
         assert "Unknown callback action" in caplog.text
+
+    def test_unknown_callback_log_has_structured_fields(self, orchestrator: VoiceOrchestrator, caplog: pytest.LogCaptureFixture):
+        event = TelegramEvent.callback(chat_id=654321, callback_data="noop:value")
+
+        with caplog.at_level(logging.WARNING):
+            asyncio.run(orchestrator._handle_callback(event))
+
+        record = next((r for r in caplog.records if r.message == "Unknown callback action"), None)
+        assert record is not None
+        assert getattr(record, "chat_id", None) == 654321
+        assert getattr(record, "callback_prefix", None) == "noop"
+        assert getattr(record, "callback_value", None) == "value"

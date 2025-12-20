@@ -223,7 +223,14 @@ class VoiceOrchestrator:
         if handler:
             await handler(event)
         else:
-            logger.warning(f"Unknown command: {command}")
+            logger.warning(
+                "Unknown command",
+                extra={
+                    "chat_id": event.chat_id,
+                    "command": command,
+                    "error_code": "unknown_command",
+                },
+            )
             await self.bot.send_message(
                 event.chat_id,
                 "❓ Comando desconhecido. Use /help para ver opções.",
@@ -266,7 +273,15 @@ class VoiceOrchestrator:
             # 006-semantic-session-search: Handle search:select:{session_id} callbacks
             await self._handle_search_select_callback(event, callback_value)
         else:
-            logger.warning(f"Unknown callback action: {callback_action}")
+            logger.warning(
+                "Unknown callback action",
+                extra={
+                    "chat_id": event.chat_id,
+                    "callback_prefix": callback_action,
+                    "callback_value": callback_value,
+                    "error_code": "unknown_callback_prefix",
+                },
+            )
 
     async def _handle_action_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle action: callbacks."""
@@ -396,8 +411,8 @@ class VoiceOrchestrator:
         # Find interrupted session
         sessions = self.session_manager.list_sessions()
         orphan = next(
-            (s for s in sessions if s.state == SessionState.INTERRUPTED),
-            None
+            (s for s in sessions if s.state == SessionState.INTERRUPTED and s.chat_id == event.chat_id),
+            None,
         )
         
         if not orphan:
@@ -430,8 +445,8 @@ class VoiceOrchestrator:
         # Find interrupted session
         sessions = self.session_manager.list_sessions()
         orphan = next(
-            (s for s in sessions if s.state == SessionState.INTERRUPTED),
-            None
+            (s for s in sessions if s.state == SessionState.INTERRUPTED and s.chat_id == event.chat_id),
+            None,
         )
         
         if not orphan:
@@ -461,8 +476,8 @@ class VoiceOrchestrator:
         # Find interrupted session
         sessions = self.session_manager.list_sessions()
         orphan = next(
-            (s for s in sessions if s.state == SessionState.INTERRUPTED),
-            None
+            (s for s in sessions if s.state == SessionState.INTERRUPTED and s.chat_id == event.chat_id),
+            None,
         )
         
         if not orphan:
@@ -500,11 +515,20 @@ class VoiceOrchestrator:
             "processing": KeyboardType.PROCESSING,
             "results": KeyboardType.RESULTS,
             "error": KeyboardType.ERROR_RECOVERY,
-            "default": KeyboardType.HELP_CONTEXT,
         }
         
-        context = topic_map.get(topic.lower(), KeyboardType.HELP_CONTEXT)
-        
+        context = topic_map.get(topic.lower())
+        if context is None:
+            logger.warning(f"Unknown help topic: {topic}")
+            if self._help_fallback_enabled:
+                await self._cmd_help(event)
+            else:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "❓ Ajuda contextual indisponível no momento.",
+                )
+            return
+
         if self.ui_service:
             preferences = UIPreferences(simplified_ui=self._simplified_ui)
             await self.ui_service.send_contextual_help(
@@ -524,37 +548,47 @@ class VoiceOrchestrator:
 
     async def _handle_recover_callback(self, event: TelegramEvent, action: str) -> None:
         """Handle recover: callbacks for crash recovery."""
-        # Find interrupted session
+        # Normalize action to support legacy aliases
+        normalized = {
+            "resume": "resume_session",
+            "resume_session": "resume_session",
+            "finalize": "finalize_orphan",
+            "finalize_orphan": "finalize_orphan",
+            "discard": "discard_orphan",
+            "discard_orphan": "discard_orphan",
+        }.get(action, action)
+
+        # Find interrupted session for this chat
         sessions = self.session_manager.list_sessions()
         interrupted = next(
-            (s for s in sessions if s.state == SessionState.INTERRUPTED),
-            None
+            (s for s in sessions if s.state == SessionState.INTERRUPTED and s.chat_id == event.chat_id),
+            None,
         )
         
         if not interrupted:
             await self.bot.send_message(
                 event.chat_id,
-                "❌ No interrupted session found.",
+                "❌ Nenhuma sessão órfã encontrada.",
             )
             return
         
-        if action == "resume":
+        if normalized == "resume_session":
             # Resume session - transition back to COLLECTING
             try:
                 self.session_manager.transition_state(interrupted.id, SessionState.COLLECTING)
                 await self.bot.send_message(
                     event.chat_id,
-                    f"✅ Session resumed: `{interrupted.id}`\n"
-                    f"Continue sending voice messages.",
+                    f"✅ Sessão retomada: `{interrupted.id}`\n"
+                    f"Continue enviando mensagens de voz.",
                     parse_mode="Markdown",
                 )
             except Exception as e:
                 logger.error(f"Failed to resume session: {e}")
                 await self.bot.send_message(
                     event.chat_id,
-                    f"❌ Failed to resume session: {e}",
+                    f"❌ Erro ao retomar sessão: {e}",
                 )
-        elif action == "finalize":
+        elif normalized == "finalize_orphan":
             # Finalize interrupted session
             try:
                 self.session_manager.transition_state(interrupted.id, SessionState.COLLECTING)
@@ -564,19 +598,23 @@ class VoiceOrchestrator:
                 logger.error(f"Failed to finalize interrupted session: {e}")
                 await self.bot.send_message(
                     event.chat_id,
-                    f"❌ Failed to finalize session: {e}",
+                    f"❌ Erro ao finalizar sessão: {e}",
                 )
-        elif action == "discard":
+        elif normalized == "discard_orphan":
             # Discard interrupted session
             try:
                 self.session_manager.transition_state(interrupted.id, SessionState.ERROR)
                 await self.bot.send_message(
                     event.chat_id,
-                    f"🗑️ Session discarded: `{interrupted.id}`",
+                    f"🗑️ Sessão descartada: `{interrupted.id}`",
                     parse_mode="Markdown",
                 )
             except Exception as e:
                 logger.error(f"Failed to discard session: {e}")
+                await self.bot.send_message(
+                    event.chat_id,
+                    f"❌ Erro ao descartar sessão: {e}",
+                )
         else:
             logger.warning(f"Unknown recover action: {action}")
 
@@ -682,7 +720,15 @@ class VoiceOrchestrator:
                     "↔️ Navegação de página ainda não persistida; continue usando os botões.",
                 )
             except ValueError:
-                logger.warning(f"Invalid page number: {value}")
+                logger.warning(
+                    "Invalid page number",
+                    extra={
+                        "chat_id": event.chat_id,
+                        "callback_prefix": "page",
+                        "callback_value": value,
+                        "error_code": "invalid_page",
+                    },
+                )
                 await self.bot.send_message(
                     event.chat_id,
                     "⚠️ Página inválida, continue navegando com os botões.",
@@ -866,7 +912,12 @@ class VoiceOrchestrator:
                 "⚠️ A busca está demorando. Tente novamente em instantes.",
             )
             logger.warning(
-                "Search timed out: chat_id=%s query=%s", chat_id, query[:50]
+                "Search timed out",
+                extra={
+                    "chat_id": chat_id,
+                    "query": query[:50],
+                    "error_code": "search_timeout",
+                },
             )
             return
         
@@ -950,7 +1001,15 @@ class VoiceOrchestrator:
         # Parse callback value: "select:{session_id}"
         parts = value.split(":", 1)
         if len(parts) != 2 or parts[0] != "select":
-            logger.warning(f"Invalid search callback format: {value}")
+            logger.warning(
+                "Invalid search callback format",
+                extra={
+                    "chat_id": event.chat_id,
+                    "callback_prefix": "search",
+                    "callback_value": value,
+                    "error_code": "invalid_search_callback",
+                },
+            )
             await self.bot.send_message(
                 event.chat_id,
                 "⚠️ Seleção inválida, escolha um item da lista.",
@@ -971,6 +1030,7 @@ class VoiceOrchestrator:
         from src.lib.messages import (
             SEARCH_SESSION_RESTORED, SEARCH_SESSION_RESTORED_SIMPLIFIED,
             SEARCH_SESSION_LOAD_ERROR, SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED,
+            SEARCH_SESSION_EXPIRED, SEARCH_SESSION_EXPIRED_SIMPLIFIED,
         )
         from src.services.telegram.keyboards import (
             build_keyboard,
@@ -979,12 +1039,61 @@ class VoiceOrchestrator:
         from src.models.ui_state import KeyboardType
         
         try:
-            # Load session (T019)
             session = self.session_manager.storage.load(session_id)
-            
-            if not session:
-                raise ValueError(f"Session not found: {session_id}")
-            
+        except Exception as e:
+            # Session load error (T025-T026)
+            logger.error(
+                f"Failed to restore session {session_id}: {e}",
+                extra={
+                    "chat_id": chat_id,
+                    "session_id": session_id,
+                    "callback_prefix": "search",
+                    "callback_value": f"select:{session_id}",
+                    "error_code": "search_session_load_error",
+                },
+            )
+
+            msg = (
+                SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED 
+                if self._simplified_ui 
+                else SEARCH_SESSION_LOAD_ERROR
+            )
+            keyboard = build_session_load_error_keyboard(simplified=self._simplified_ui)
+
+            await self.bot.send_message(
+                chat_id,
+                msg,
+                reply_markup=keyboard,
+            )
+            return
+
+        if not session:
+            logger.warning(
+                "Search session missing or stale callback",
+                extra={
+                    "chat_id": chat_id,
+                    "session_id": session_id,
+                    "callback_prefix": "search",
+                    "callback_value": f"select:{session_id}",
+                    "error_code": "search_session_missing",
+                },
+            )
+
+            msg = (
+                SEARCH_SESSION_EXPIRED_SIMPLIFIED
+                if self._simplified_ui
+                else SEARCH_SESSION_EXPIRED
+            )
+            keyboard = build_session_load_error_keyboard(simplified=self._simplified_ui)
+
+            await self.bot.send_message(
+                chat_id,
+                msg,
+                reply_markup=keyboard,
+            )
+            return
+
+        try:
             # Check if already active (T020)
             active = self.session_manager.get_active_session()
             if active and active.id == session_id:
@@ -1025,11 +1134,28 @@ class VoiceOrchestrator:
                 reply_markup=keyboard,
             )
             
-            logger.info(f"Session restored: {session_id} for chat_id={chat_id}")
+            logger.info(
+                "Session restored",
+                extra={
+                    "chat_id": chat_id,
+                    "session_id": session_id,
+                    "callback_prefix": "search",
+                    "callback_value": f"select:{session_id}",
+                },
+            )
             
         except Exception as e:
             # Session load error (T025-T026)
-            logger.error(f"Failed to restore session {session_id}: {e}")
+            logger.error(
+                f"Failed to finalize restoration for session {session_id}: {e}",
+                extra={
+                    "chat_id": chat_id,
+                    "session_id": session_id,
+                    "callback_prefix": "search",
+                    "callback_value": f"select:{session_id}",
+                    "error_code": "search_session_restore_error",
+                },
+            )
             
             msg = (
                 SEARCH_SESSION_LOAD_ERROR_SIMPLIFIED 

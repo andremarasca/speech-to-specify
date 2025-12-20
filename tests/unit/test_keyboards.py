@@ -239,7 +239,7 @@ class TestRecoveryKeyboard:
             for row in keyboard.inline_keyboard 
             for btn in row
         ]
-        assert "action:resume_session" in callback_datas
+        assert "recover:resume_session" in callback_datas
 
     def test_has_finalize_button(self):
         """Recovery keyboard should have Finalize button."""
@@ -249,7 +249,7 @@ class TestRecoveryKeyboard:
             for row in keyboard.inline_keyboard 
             for btn in row
         ]
-        assert "action:finalize_orphan" in callback_datas
+        assert "recover:finalize_orphan" in callback_datas
 
     def test_has_discard_button(self):
         """Recovery keyboard should have Discard button."""
@@ -259,7 +259,7 @@ class TestRecoveryKeyboard:
             for row in keyboard.inline_keyboard 
             for btn in row
         ]
-        assert "action:discard_orphan" in callback_datas
+        assert "recover:discard_orphan" in callback_datas
 
     def test_has_help_button(self):
         """Recovery keyboard should have Help button."""

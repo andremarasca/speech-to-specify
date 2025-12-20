@@ -218,11 +218,11 @@ class TestRecoveryCallbackHandling:
         # Create recover:resume callback event
         event = TelegramEvent.callback(
             chat_id=123456,
-            callback_data="recover:resume",
+            callback_data="recover:resume_session",
             message_id=1000,
         )
         
-        await orchestrator._handle_recover_callback(event, "resume")
+        await orchestrator._handle_recover_callback(event, "resume_session")
         
         # Should transition to COLLECTING
         mock_session_manager.transition_state.assert_called_once_with(
@@ -260,11 +260,11 @@ class TestRecoveryCallbackHandling:
         
         event = TelegramEvent.callback(
             chat_id=123456,
-            callback_data="recover:finalize",
+            callback_data="recover:finalize_orphan",
             message_id=1000,
         )
         
-        await orchestrator._handle_recover_callback(event, "finalize")
+        await orchestrator._handle_recover_callback(event, "finalize_orphan")
         
         # Should transition to COLLECTING first (required for finalize)
         mock_session_manager.transition_state.assert_called_with(
@@ -301,11 +301,11 @@ class TestRecoveryCallbackHandling:
         
         event = TelegramEvent.callback(
             chat_id=123456,
-            callback_data="recover:discard",
+            callback_data="recover:discard_orphan",
             message_id=1000,
         )
         
-        await orchestrator._handle_recover_callback(event, "discard")
+        await orchestrator._handle_recover_callback(event, "discard_orphan")
         
         # Should transition to ERROR
         mock_session_manager.transition_state.assert_called_once_with(
