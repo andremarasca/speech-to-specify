@@ -312,7 +312,13 @@ class DefaultSearchService(SearchService):
             )
     
     def _calculate_text_score(self, session: Session, query_lower: str) -> float:
-        """Calculate text match score for a session."""
+        """Calculate text match score for a session.
+        
+        Searches against:
+        1. Session name (highest priority)
+        2. Session ID
+        3. Transcript content (full-text search)
+        """
         score = 0.0
         
         # Match against session name
@@ -326,7 +332,63 @@ class DefaultSearchService(SearchService):
         if query_lower in session.id.lower():
             score = max(score, 0.6)
         
+        # Match against transcript content
+        transcript_score = self._search_transcripts(session, query_lower)
+        score = max(score, transcript_score)
+        
         return score
+    
+    def _search_transcripts(self, session: Session, query_lower: str) -> float:
+        """Search transcript files for query match.
+        
+        Args:
+            session: Session to search
+            query_lower: Lowercase query string
+            
+        Returns:
+            Score between 0.0-0.7 based on match quality
+        """
+        try:
+            # Get transcripts directory from storage
+            transcripts_dir = session.transcripts_path(self.storage.sessions_dir)
+            
+            if not transcripts_dir.exists():
+                return 0.0
+            
+            # Read and search all transcript files
+            query_words = query_lower.split()
+            found_exact = False
+            found_words = 0
+            
+            for transcript_file in transcripts_dir.glob("*.txt"):
+                try:
+                    content = transcript_file.read_text(encoding="utf-8").lower()
+                    
+                    # Check for exact phrase match
+                    if query_lower in content:
+                        found_exact = True
+                        break
+                    
+                    # Check for word matches
+                    for word in query_words:
+                        if len(word) >= 3 and word in content:  # Ignore very short words
+                            found_words += 1
+                            
+                except Exception:
+                    continue
+            
+            # Score based on match type
+            if found_exact:
+                return 0.7  # High score for exact phrase match in transcript
+            elif found_words > 0:
+                # Partial score based on word coverage
+                coverage = found_words / len(query_words) if query_words else 0
+                return min(0.5, 0.3 + (coverage * 0.2))
+            
+            return 0.0
+            
+        except Exception:
+            return 0.0
     
     def search_by_date_range(
         self,
