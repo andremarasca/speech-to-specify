@@ -44,7 +44,7 @@
 
 ### Tests for User Story 1
 - [x] T008 [P] [US1] Teste contrato de comandos `/start|/done|/finish|/status|/transcripts|/process|/list|/get|/help|/preferences|/session` mapeados no orchestrator (tests/unit/test_telegram_event.py)
-- [ ] T009 [P] [US1] Teste integração de fluxo gravação→status→finalização com teclados contextuais (tests/integration/test_inline_keyboard_flow.py)
+- [x] T009 [P] [US1] Teste integração de fluxo gravação→status→finalização com teclados contextuais (tests/integration/test_inline_keyboard_flow.py)
 
 ### Implementation for User Story 1
 - [x] T010 [P] [US1] Registrar todos os CommandHandlers no TelegramBotAdapter.start() (src/services/telegram/bot.py)
