@@ -1139,7 +1139,7 @@ class VoiceOrchestrator:
                 await self.bot.send_message(
                     chat_id,
                     f"⚠️ Já existe uma sessão ativa: *{active_name}*\n\n"
-                    f"Use `/done` para finalizar a sessão atual antes de reabrir outra.",
+                    f"💡 /done para finalizar a sessão atual antes de reabrir outra.",
                     parse_mode="Markdown",
                 )
                 return
@@ -1157,7 +1157,7 @@ class VoiceOrchestrator:
                 f"🎙️ Áudios existentes: {session.audio_count}\n"
                 f"📊 Estado: {old_state.value} → COLLECTING\n\n"
                 f"Envie mensagens de voz para adicionar mais áudio.\n"
-                f"Use `/done` quando terminar."
+                f"💡 /done quando terminar."
             )
             
             # Build SESSION_ACTIVE keyboard
@@ -1987,9 +1987,9 @@ class VoiceOrchestrator:
             )
         
         lines.append("\n**Comandos:**")
-        lines.append("• `/reopen <id>` - Reabrir sessão")
-        lines.append("• `/transcripts` - Ver transcrições")
-        lines.append("• `/list` - Ver arquivos da sessão recente")
+        lines.append("• /reopen <id> - Reabrir sessão")
+        lines.append("• /transcripts - Ver transcrições")
+        lines.append("• /list - Ver arquivos da sessão recente")
         
         await self.bot.send_message(
             event.chat_id,
@@ -2154,7 +2154,7 @@ class VoiceOrchestrator:
                 await self.bot.send_message(
                     event.chat_id,
                     "❌ Nenhuma sessão disponível para reabrir.\n\n"
-                    "💡 Use `/sessions` para ver todas as sessões.",
+                    "💡 /sessions para ver todas as sessões.",
                     parse_mode="Markdown",
                 )
                 return
@@ -2169,7 +2169,7 @@ class VoiceOrchestrator:
                 await self.bot.send_message(
                     event.chat_id,
                     f"❌ Sessão não encontrada: `{reference}`\n\n"
-                    "💡 Use `/sessions` para ver sessões disponíveis.",
+                    "💡 Use /sessions para ver sessões disponíveis.",
                     parse_mode="Markdown",
                 )
                 return
@@ -2216,7 +2216,7 @@ class VoiceOrchestrator:
             await self.bot.send_message(
                 event.chat_id,
                 f"⚠️ Já existe uma sessão ativa: *{active_name}*\n\n"
-                f"Use `/done` para finalizar a sessão atual antes de reabrir outra.",
+                f"💡 /done para finalizar a sessão atual antes de reabrir outra.",
                 parse_mode="Markdown",
             )
             return
@@ -2235,7 +2235,7 @@ class VoiceOrchestrator:
                 f"🎙️ Áudios existentes: {session.audio_count}\n"
                 f"📊 Estado: {old_state.value} → COLLECTING\n\n"
                 f"Envie mensagens de voz para adicionar mais áudio.\n"
-                f"Use `/done` quando terminar.",
+                f"💡 /done quando terminar.",
                 parse_mode="Markdown",
             )
             
@@ -2301,9 +2301,9 @@ class VoiceOrchestrator:
                 f"⚙️ **Preferências Atuais**\n\n"
                 f"Interface: {mode}\n\n"
                 f"**Comandos:**\n"
-                f"`/preferences simple` - Ativar modo simplificado\n"
-                f"`/preferences normal` - Ativar modo normal\n"
-                f"`/preferences toggle` - Alternar modo",
+                f"/preferences simple - Ativar modo simplificado\n"
+                f"/preferences normal - Ativar modo normal\n"
+                f"/preferences toggle - Alternar modo",
                 parse_mode="Markdown",
             )
         
@@ -2372,10 +2372,10 @@ class VoiceOrchestrator:
             await self.bot.send_message(
                 event.chat_id,
                 "🔍 **Busca por Nome**\n\n"
-                "Uso: `/search <nome>`\n\n"
+                "Uso: /search <nome>\n\n"
                 "Outros comandos:\n"
-                "• `/searchid <id>` - busca por ID\n"
-                "• `/searchtxt <texto>` - busca em transcrições",
+                "• /searchid <id> - busca por ID\n"
+                "• /searchtxt <texto> - busca em transcrições",
                 parse_mode="Markdown",
             )
             return
@@ -2396,8 +2396,8 @@ class VoiceOrchestrator:
             await self.bot.send_message(
                 event.chat_id,
                 "🔍 **Busca por ID**\n\n"
-                "Uso: `/searchid <id>`\n\n"
-                "Exemplo: `/searchid 2025-12-19`",
+                "Uso: /searchid <id>\n\n"
+                "Exemplo: /searchid 2025-12-19",
                 parse_mode="Markdown",
             )
             return
@@ -2418,8 +2418,8 @@ class VoiceOrchestrator:
             await self.bot.send_message(
                 event.chat_id,
                 "🔍 **Busca em Transcrições**\n\n"
-                "Uso: `/searchtxt <texto>`\n\n"
-                "Exemplo: `/searchtxt mensageria`",
+                "Uso: /searchtxt <texto>\n\n"
+                "Exemplo: /searchtxt mensageria",
                 parse_mode="Markdown",
             )
             return
