@@ -535,6 +535,27 @@ class TelegramBotAdapter:
                 caption=caption,
             )
 
+    async def send_voice(self, chat_id: int, file_path: Path, caption: str = None) -> None:
+        """
+        Send voice message to user.
+
+        Per 008-async-audio-response: Used to deliver TTS audio responses.
+
+        Args:
+            chat_id: Target chat ID
+            file_path: Path to audio file (OGG format recommended for Telegram)
+            caption: Optional caption
+        """
+        if not self._app:
+            raise RuntimeError("Bot not started")
+
+        with open(file_path, "rb") as f:
+            await self._app.bot.send_voice(
+                chat_id=chat_id,
+                voice=f,
+                caption=caption,
+            )
+
     async def download_voice(self, file_id: str, destination: Path) -> int:
         """
         Download voice message to local path.

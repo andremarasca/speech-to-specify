@@ -28,12 +28,12 @@
 
 **Purpose**: Project initialization, configuration and models
 
-- [ ] T001 Add `edge-tts>=6.1.0` to requirements.txt
-- [ ] T002 [P] Add TTS environment variables to .env.example with documentation
-- [ ] T003 [P] Create TTSConfig class in src/lib/config.py with env bindings (TTS_ENABLED, TTS_VOICE, TTS_FORMAT, TTS_TIMEOUT_SECONDS, TTS_MAX_TEXT_LENGTH, TTS_GC_RETENTION_HOURS, TTS_GC_MAX_STORAGE_MB)
-- [ ] T004 Create `get_tts_config()` factory function in src/lib/config.py
-- [ ] T005 [P] Create TTS models in src/models/tts.py (TTSRequest, TTSResult, TTSArtifact dataclasses)
-- [ ] T006 [P] Create src/services/tts/__init__.py with module exports
+- [X] T001 Add `edge-tts>=6.1.0` to requirements.txt
+- [X] T002 [P] Add TTS environment variables to .env.example with documentation
+- [X] T003 [P] Create TTSConfig class in src/lib/config.py with env bindings (TTS_ENABLED, TTS_VOICE, TTS_FORMAT, TTS_TIMEOUT_SECONDS, TTS_MAX_TEXT_LENGTH, TTS_GC_RETENTION_HOURS, TTS_GC_MAX_STORAGE_MB)
+- [X] T004 Create `get_tts_config()` factory function in src/lib/config.py
+- [X] T005 [P] Create TTS models in src/models/tts.py (TTSRequest, TTSResult, TTSArtifact dataclasses)
+- [X] T006 [P] Create src/services/tts/__init__.py with module exports
 
 ---
 
@@ -43,11 +43,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Create TTSService abstract base class in src/services/tts/base.py (synthesize, check_health, get_artifact_path methods)
-- [ ] T008 [P] Create TextSanitizer in src/services/tts/text_sanitizer.py (strip_markdown, strip_special_characters - reference .local/edge_tts_generate.py)
-- [ ] T009 [P] Create MockTTSService in src/services/tts/mock_service.py for testing
-- [ ] T010 Create EdgeTTSService implementation in src/services/tts/edge_tts_service.py (implement synthesize, check_health, get_artifact_path)
-- [ ] T010b [P] Add integration test verifying TTSService provider can be swapped via config injection (FR-014)
+- [X] T007 Create TTSService abstract base class in src/services/tts/base.py (synthesize, check_health, get_artifact_path methods)
+- [X] T008 [P] Create TextSanitizer in src/services/tts/text_sanitizer.py (strip_markdown, strip_special_characters - reference .local/edge_tts_generate.py)
+- [X] T009 [P] Create MockTTSService in src/services/tts/mock_service.py for testing
+- [X] T010 Create EdgeTTSService implementation in src/services/tts/edge_tts_service.py (implement synthesize, check_health, get_artifact_path)
+- [X] T010b [P] Add integration test verifying TTSService provider can be swapped via config injection (FR-014)
 
 **Checkpoint**: Foundation ready - TTS service can be instantiated and health-checked
 
@@ -63,19 +63,19 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Unit test for text sanitization in tests/unit/test_text_sanitizer.py (markdown headers/bold/italic, code blocks, emojis, URLs, special unicode chars)
-- [ ] T012 [P] [US1] Contract test for TTSService.synthesize() in tests/contract/test_tts_service_contract.py (BC-TTS-001 through BC-TTS-004)
-- [ ] T013 [P] [US1] Unit test for TTSConfig validation in tests/unit/test_tts_config.py
+- [X] T011 [P] [US1] Unit test for text sanitization in tests/unit/test_text_sanitizer.py (markdown headers/bold/italic, code blocks, emojis, URLs, special unicode chars)
+- [X] T012 [P] [US1] Contract test for TTSService.synthesize() in tests/contract/test_tts_service_contract.py (BC-TTS-001 through BC-TTS-004)
+- [X] T013 [P] [US1] Unit test for TTSConfig validation in tests/unit/test_tts_config.py
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement idempotency check in EdgeTTSService.synthesize() - return cached TTSResult if file exists (BC-TTS-002)
-- [ ] T015 [US1] Implement async synthesis with timeout in EdgeTTSService.synthesize() using asyncio.wait_for (BC-TTS-001)
-- [ ] T016 [US1] Implement error isolation in EdgeTTSService - catch all exceptions, return TTSResult.error() (BC-TTS-003)
-- [ ] T016b [US1] Implement audio file integrity check in EdgeTTSService - verify file exists, size > 0, valid OGG header before returning success (FR-008)
-- [ ] T017 [US1] Add `_synthesize_and_send_audio()` method to TelegramDaemon in src/cli/daemon.py
-- [ ] T018 [US1] Integrate TTS trigger in `_handle_oracle_callback()` after bot.send_message() using asyncio.create_task()
-- [ ] T019 [US1] Implement bot.send_voice() notification when synthesis completes successfully
+- [X] T014 [US1] Implement idempotency check in EdgeTTSService.synthesize() - return cached TTSResult if file exists (BC-TTS-002)
+- [X] T015 [US1] Implement async synthesis with timeout in EdgeTTSService.synthesize() using asyncio.wait_for (BC-TTS-001)
+- [X] T016 [US1] Implement error isolation in EdgeTTSService - catch all exceptions, return TTSResult.error() (BC-TTS-003)
+- [X] T016b [US1] Implement audio file integrity check in EdgeTTSService - verify file exists, size > 0, valid OGG header before returning success (FR-008)
+- [X] T017 [US1] Add `_synthesize_and_send_audio()` method to TelegramDaemon in src/cli/daemon.py
+- [X] T018 [US1] Integrate TTS trigger in `_handle_oracle_callback()` after bot.send_message() using asyncio.create_task()
+- [X] T019 [US1] Implement bot.send_voice() notification when synthesis completes successfully
 
 **Checkpoint**: User Story 1 complete - text arrives immediately, audio follows asynchronously
 
@@ -89,15 +89,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Contract test for error isolation in tests/contract/test_tts_service_contract.py (BC-TTS-003)
-- [ ] T021 [P] [US2] Integration test for graceful degradation in tests/integration/test_tts_integration.py
+- [X] T020 [P] [US2] Contract test for error isolation in tests/contract/test_tts_service_contract.py (BC-TTS-003)
+- [X] T021 [P] [US2] Integration test for graceful degradation in tests/integration/test_tts_integration.py
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Add try/except wrapper in `_synthesize_and_send_audio()` - never propagate exceptions
-- [ ] T023 [US2] Implement logging for synthesis failures with context (session_id, oracle, duration)
-- [ ] T024 [US2] Add user notification when TTS fails ("Áudio não disponível nesta resposta")
-- [ ] T025 [US2] Add TTSService health check during daemon startup, log warning if unhealthy
+- [X] T022 [US2] Add try/except wrapper in `_synthesize_and_send_audio()` - never propagate exceptions
+- [X] T023 [US2] Implement logging for synthesis failures with context (session_id, oracle, duration)
+- [X] T024 [US2] Add user notification when TTS fails ("Áudio não disponível nesta resposta")
+- [X] T025 [US2] Add TTSService health check during daemon startup, log warning if unhealthy
 
 **Checkpoint**: User Story 2 complete - TTS failures gracefully handled, text delivery never impacted
 
@@ -111,16 +111,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T026 [P] [US3] Unit test for TTSArtifact.is_expired() in tests/unit/test_tts_models.py
-- [ ] T027 [P] [US3] Integration test for garbage collection in tests/integration/test_tts_gc.py
+- [X] T026 [P] [US3] Unit test for TTSArtifact.is_expired() in tests/unit/test_tts_models.py
+- [X] T027 [P] [US3] Integration test for garbage collection in tests/integration/test_tts_gc.py
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Create TTSGarbageCollector class in src/services/tts/garbage_collector.py
-- [ ] T029 [US3] Implement collect() method - scan sessions/*/audio/tts/, remove expired files
-- [ ] T030 [US3] Implement storage limit check - remove oldest files if TTS_GC_MAX_STORAGE_MB exceeded
-- [ ] T031 [US3] Add GC trigger in daemon startup or periodic background task
-- [ ] T031b [US3] Implement orphan artifact detection - mark artifacts as orphan when session terminates during synthesis
+- [X] T028 [US3] Create TTSGarbageCollector class in src/services/tts/garbage_collector.py
+- [X] T029 [US3] Implement collect() method - scan sessions/*/audio/tts/, remove expired files
+- [X] T030 [US3] Implement storage limit check - remove oldest files if TTS_GC_MAX_STORAGE_MB exceeded
+- [X] T031 [US3] Add GC trigger in daemon startup or periodic background task
+- [X] T031b [US3] Implement orphan artifact detection - mark artifacts as orphan when session terminates during synthesis
 
 **Checkpoint**: User Story 3 complete - TTS artifacts automatically cleaned up
 
@@ -134,13 +134,13 @@
 
 ### Tests for User Story 4
 
-- [ ] T032 [P] [US4] Contract test for concurrent idempotency in tests/contract/test_tts_service_contract.py (extends T012's BC-TTS-002 with concurrent request scenarios)
-- [ ] T033 [P] [US4] Unit test for TTSRequest.idempotency_key in tests/unit/test_tts_models.py
+- [X] T032 [P] [US4] Contract test for concurrent idempotency in tests/contract/test_tts_service_contract.py (extends T012's BC-TTS-002 with concurrent request scenarios)
+- [X] T033 [P] [US4] Unit test for TTSRequest.idempotency_key in tests/unit/test_tts_models.py
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Verify idempotency_key generation includes session_id, oracle_id, text hash
-- [ ] T035 [US4] Implement concurrent request handling - use file lock or async lock to prevent duplicate synthesis
+- [X] T034 [US4] Verify idempotency_key generation includes session_id, oracle_id, text hash
+- [X] T035 [US4] Implement concurrent request handling - use file lock or async lock to prevent duplicate synthesis
 
 **Checkpoint**: User Story 4 complete - duplicate requests return cached artifacts
 
@@ -150,11 +150,11 @@
 
 **Purpose**: Documentation, validation, and final improvements
 
-- [ ] T036 [P] Create docs/tutorial_tts_extensibility.md per constitution: (1) synthesis logic location, (2) TTS provider extension points, (3) codec configuration, (4) performance tuning, (5) storage path configuration
-- [ ] T037 [P] Update .env.example with all TTS variables and documentation
-- [ ] T038 [P] Add docstrings to all public methods in src/services/tts/
-- [ ] T039 Run quickstart.md validation (4 verification steps)
-- [ ] T040 Verify all tests pass: pytest tests/unit/test_tts*.py tests/contract/test_tts*.py tests/integration/test_tts*.py
+- [X] T036 [P] Create docs/tutorial_tts_extensibility.md per constitution: (1) synthesis logic location, (2) TTS provider extension points, (3) codec configuration, (4) performance tuning, (5) storage path configuration
+- [X] T037 [P] Update .env.example with all TTS variables and documentation
+- [X] T038 [P] Add docstrings to all public methods in src/services/tts/
+- [X] T039 Run quickstart.md validation (4 verification steps)
+- [X] T040 Verify all tests pass: pytest tests/unit/test_tts*.py tests/contract/test_tts*.py tests/integration/test_tts*.py
 
 ---
 

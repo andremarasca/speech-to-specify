@@ -25,6 +25,7 @@ from src.lib.config import (
     get_whisper_config,
     get_session_config,
     get_search_config,
+    get_tts_config,
     UIConfig,
 )
 from src.lib.timestamps import generate_timestamp
@@ -82,6 +83,7 @@ class VoiceOrchestrator:
     - TranscriptionService: Converts audio to text using local Whisper
     - DownstreamProcessor: Integrates with narrative pipeline
     - UIService: Handles presentation layer with inline keyboards (005-telegram-ux-overhaul)
+    - TTSService: Synthesizes audio responses (008-async-audio-response)
     """
 
     def __init__(
@@ -108,6 +110,29 @@ class VoiceOrchestrator:
         self._search_config = get_search_config()
         self._help_fallback_enabled = self._search_config.help_fallback_enabled
         self._orphan_recovery_prompt = self._search_config.orphan_recovery_prompt
+        # 008-async-audio-response: TTS service for audio responses
+        self._tts_service = self._init_tts_service()
+
+    def _init_tts_service(self):
+        """Initialize TTS service if enabled.
+        
+        Per 008-async-audio-response: Creates EdgeTTSService if TTS_ENABLED=true.
+        Returns None if disabled or initialization fails.
+        """
+        try:
+            tts_config = get_tts_config()
+            if not tts_config.enabled:
+                logger.info("TTS disabled via TTS_ENABLED=false")
+                return None
+            
+            from src.services.tts import EdgeTTSService
+            session_config = get_session_config()
+            service = EdgeTTSService(tts_config, session_config.sessions_path)
+            logger.info(f"TTS service initialized: voice={tts_config.voice}, format={tts_config.format}")
+            return service
+        except Exception as e:
+            logger.warning(f"Failed to initialize TTS service: {e}")
+            return None
 
     def set_chat_id(self, chat_id: int) -> None:
         """Set the authorized chat ID for sending messages."""
@@ -1017,6 +1042,18 @@ class VoiceOrchestrator:
         
         await self.bot.send_message(chat_id, msg, reply_markup=keyboard, parse_mode="Markdown")
         
+        # 008-async-audio-response: Trigger async TTS synthesis
+        # Text is already delivered; audio follows asynchronously per Constitution
+        if self._tts_service and active:
+            asyncio.create_task(
+                self._synthesize_and_send_audio(
+                    chat_id=chat_id,
+                    text=response.content,
+                    session=active,
+                    oracle=oracle,
+                )
+            )
+        
         logger.info(f"Oracle feedback sent: {oracle.name} for session {active.id}")
 
     async def _persist_oracle_response(
@@ -1071,6 +1108,68 @@ class VoiceOrchestrator:
         self.session_manager.save_session(session)
         
         logger.debug(f"Persisted oracle response: {filename}")
+
+    async def _synthesize_and_send_audio(
+        self,
+        chat_id: int,
+        text: str,
+        session,
+        oracle,
+    ) -> None:
+        """Synthesize TTS audio and send to user.
+        
+        Per 008-async-audio-response (User Story 1):
+        - Runs asynchronously after text is delivered
+        - Never blocks or raises exceptions to caller
+        - Sends voice message when synthesis succeeds
+        - Logs warning and optionally notifies user on failure
+        
+        Args:
+            chat_id: Telegram chat ID to send audio to
+            text: Oracle response text to synthesize
+            session: Active session for storage path
+            oracle: Oracle that generated the response
+        """
+        from src.models.tts import TTSRequest
+        
+        try:
+            if not self._tts_service:
+                return
+            
+            # Create TTS request
+            # Use next_llm_sequence - 1 since sequence was just incremented after persist
+            sequence = max(1, session.next_llm_sequence - 1)
+            request = TTSRequest(
+                text=text,
+                session_id=session.id,
+                sequence=sequence,
+                oracle_name=oracle.name,
+                oracle_id=oracle.id,
+            )
+            
+            # Synthesize audio
+            logger.debug(f"Starting TTS synthesis for oracle {oracle.name}")
+            result = await self._tts_service.synthesize(request)
+            
+            if result.success and result.file_path:
+                # Send voice message to user
+                await self.bot.send_voice(chat_id, result.file_path)
+                cache_info = " (cached)" if result.cached else ""
+                logger.info(
+                    f"TTS audio sent: {oracle.name} for session {session.id} "
+                    f"({result.duration_ms}ms{cache_info})"
+                )
+            else:
+                # Log failure, optionally notify user (US2)
+                logger.warning(
+                    f"TTS synthesis failed for oracle {oracle.name}: {result.error_message}"
+                )
+                # Per US2: User notification on failure is optional
+                # await self.bot.send_message(chat_id, "Áudio não disponível nesta resposta")
+                
+        except Exception as e:
+            # BC-TTS-003: Error isolation - never propagate exceptions
+            logger.error(f"TTS synthesis error: {e}", exc_info=True)
 
     async def _handle_toggle_callback(self, event: TelegramEvent, toggle_type: str) -> None:
         """Handle toggle:{type} callbacks.

@@ -12,3 +12,6 @@ torchaudio>=2.1.0
 
 # Semantic matching for auto-session (003-auto-session-audio)
 sentence-transformers>=2.2.0
+
+# Text-to-Speech for async audio responses (008-async-audio-response)
+edge-tts>=6.1.0

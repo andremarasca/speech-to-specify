@@ -393,7 +393,7 @@ def get_oracle_config() -> OracleConfig:
 
 def reset_all_configs() -> None:
     """Reset all configuration instances (useful for testing)."""
-    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config, _search_config, _oracle_config
+    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config, _search_config, _oracle_config, _tts_config
     _settings = None
     _telegram_config = None
     _whisper_config = None
@@ -401,6 +401,7 @@ def reset_all_configs() -> None:
     _ui_config = None
     _search_config = None
     _oracle_config = None
+    _tts_config = None
 
 
 class UIConfig(BaseSettings):
@@ -461,3 +462,75 @@ def get_ui_config() -> UIConfig:
     if _ui_config is None:
         _ui_config = UIConfig()
     return _ui_config
+
+
+class TTSConfig(BaseSettings):
+    """Configuration for Text-to-Speech service.
+    
+    Per Constitution Principle III (External Configuration):
+    All TTS parameters must be externally configurable.
+    
+    Per plan.md for 008-async-audio-response.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        alias="TTS_ENABLED",
+        description="Enable/disable TTS synthesis",
+    )
+
+    voice: str = Field(
+        default="pt-BR-AntonioNeural",
+        alias="TTS_VOICE",
+        description="Edge TTS voice identifier",
+    )
+
+    format: str = Field(
+        default="ogg",
+        alias="TTS_FORMAT",
+        description="Audio output format: ogg, mp3, wav",
+    )
+
+    timeout_seconds: int = Field(
+        default=60,
+        alias="TTS_TIMEOUT_SECONDS",
+        description="Maximum time for synthesis operation",
+    )
+
+    max_text_length: int = Field(
+        default=5000,
+        alias="TTS_MAX_TEXT_LENGTH",
+        description="Maximum text length to synthesize",
+    )
+
+    # Garbage Collection
+    gc_retention_hours: int = Field(
+        default=24,
+        alias="TTS_GC_RETENTION_HOURS",
+        description="Hours to retain TTS artifacts before GC",
+    )
+
+    gc_max_storage_mb: int = Field(
+        default=500,
+        alias="TTS_GC_MAX_STORAGE_MB",
+        description="Maximum storage for TTS artifacts in MB",
+    )
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "populate_by_name": True,
+    }
+
+
+# TTS config instance (lazy loaded)
+_tts_config: TTSConfig | None = None
+
+
+def get_tts_config() -> TTSConfig:
+    """Get the TTS configuration instance."""
+    global _tts_config
+    if _tts_config is None:
+        _tts_config = TTSConfig()
+    return _tts_config
