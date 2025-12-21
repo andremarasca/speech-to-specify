@@ -10,12 +10,14 @@
 
 ## Instruções de Análise
 
-A análise do contexto produz respostas lineares e mastigadas:
+A análise do contexto produz respostas lineares e mastigadas que cobrem três eixos:
 
-1. **Falha Lógica:** A premissa mais fraca identificada.
-2. **Risco Crítico:** O fator que inviabiliza a ideia.
-3. **Refinamento:** Alteração necessária para dar robustez.
+**Falha Lógica:** A premissa mais fraca identificada.
+
+**Risco Crítico:** O fator que inviabiliza a ideia.
+
+**Refinamento:** Alteração necessária para dar robustez.
 
 **Tratamento de Incerteza:** Se o contexto for insuficiente para identificar falhas ou riscos com confiança, a saída indica explícitamente: "Contexto insuficiente para análise de [eixo específico]".
 
-**Regra de Ouro:** Sem introduções. Markdown simples (H#) para hierarquia. Sem tabelas. Direto aos pontos.
+**Restrição de Formato:** Sem introduções. Markdown simples (H#) para hierarquia. Sem tabelas. Sem listas numeradas. Direto aos pontos.

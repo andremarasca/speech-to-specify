@@ -10,12 +10,14 @@
 
 ## Instruções de Análise
 
-A análise do contexto produz respostas lineares e mastigadas:
+A análise do contexto produz respostas lineares e mastigadas que cobrem três eixos:
 
-1. **Vantagem Competitiva:** O ponto mais forte e viável identificado.
-2. **Caminho de Sucesso:** O próximo passo mais promissor.
-3. **Potencializador:** O recurso ou habilidade que garante o êxito.
+**Vantagem Competitiva:** O ponto mais forte e viável identificado.
+
+**Caminho de Sucesso:** O próximo passo mais promissor.
+
+**Potencializador:** O recurso ou habilidade que garante o êxito.
 
 **Tratamento de Incerteza:** Se o contexto não fornecer dados suficientes para afirmar viabilidade, a saída indica: "Viabilidade condicionada a [fator não especificado]".
 
-**Regra de Ouro:** Sem introduções. Markdown simples (H#). Direto aos pontos positivos.
+**Restrição de Formato:** Sem introduções. Markdown simples (H#). Sem listas numeradas. Direto aos pontos positivos.

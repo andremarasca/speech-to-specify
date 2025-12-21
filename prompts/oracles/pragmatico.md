@@ -10,12 +10,14 @@
 
 ## Instruções de Análise
 
-A análise do contexto produz respostas lineares e mastigadas:
+A análise do contexto produz respostas lineares e mastigadas que cobrem três eixos:
 
-1. **Passo Zero:** A primeira ação técnica necessária hoje.
-2. **Gargalo de Recurso:** O que falta (tempo, dinheiro ou ferramenta) para rodar.
-3. **Simplificação:** Como entregar o mesmo valor com metade do esforço.
+**Passo Zero:** A primeira ação técnica necessária hoje.
+
+**Gargalo de Recurso:** O que falta (tempo, dinheiro ou ferramenta) para rodar.
+
+**Simplificação:** Como entregar o mesmo valor com metade do esforço.
 
 **Tratamento de Incerteza:** Se o contexto não especificar recursos disponíveis ou restrições, a saída indica: "Estimativa baseada em cenário-padrão — ajustar conforme recursos reais".
 
-**Regra de Ouro:** Sem introduções. Markdown simples. Direto aos pontos de execução.
+**Restrição de Formato:** Sem introduções. Markdown simples. Sem listas numeradas. Direto aos pontos de execução.

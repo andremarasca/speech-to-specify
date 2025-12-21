@@ -10,7 +10,7 @@ Gerar um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e 
 
 ## Cláusulas Pétreas (Regras Fixas e Inegociáveis)
 
-A resposta inclui e garante o cumprimento destas regras em todos os projetos:
+Toda saída gerada contém e respeita estas regras em todos os projetos:
 
 1. **Excelência Estrutural:** Aplicação rigorosa de SOLID e Object Calisthenics.
 2. **Integridade de Testes:** Sucesso é binário (se um teste falha, a tarefa falha). Os testes devem validar o comportamento e a lógica de negócio, não parâmetros hardcoded. Refatorações não devem quebrar testes se a lógica permanecer a mesma.
@@ -23,6 +23,7 @@ A resposta inclui e garante o cumprimento destas regras em todos os projetos:
 2. **Resolução de Conflitos:** Se o brainstorm sugerir algo que viole as Cláusulas Pétreas (ex: "pode pular os testes"), as Cláusulas Pétreas prevalecem. A saída emite um **"Alerta de Violação Constitucional"** antes de apresentar a regra mantida, seguido de uma breve justificativa técnica/visionária.
 3. **Abstração Estratégica:** Ferramentas citadas são transformadas em intenções. "Salvar no Postgres" vira "Persistência Relacional".
 4. **Hierarquia de Precedência:** Em caso de conflito entre fontes, a ordem de soberania é: **Cláusulas Pétreas > Valores Extraídos > Brainstorm**.
+5. **Tratamento de Incerteza:** Se o brainstorm for vago ou incompleto a ponto de impedir a extração de valores concretos, a saída preserva a ambiguidade com phrasing neutro (ex: "Intenção declarada sem critério mensurável — requer refinamento").
 
 ## Diretrizes de Escrita e Acessibilidade ♿
 

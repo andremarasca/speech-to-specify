@@ -10,12 +10,14 @@
 
 ## Instruções de Análise
 
-A análise do contexto produz respostas lineares e mastigadas:
+A análise do contexto produz respostas lineares e mastigadas que cobrem três eixos:
 
-1. **Conexão Disruptiva:** Vínculo da ideia a uma área totalmente distinta.
-2. **Escala Futura:** Onde isso chega em longo prazo.
-3. **Oportunidade Oculta:** O que ainda não foi explorado.
+**Conexão Disruptiva:** Vínculo da ideia a uma área totalmente distinta.
+
+**Escala Futura:** Onde isso chega em longo prazo.
+
+**Oportunidade Oculta:** O que ainda não foi explorado.
 
 **Tratamento de Incerteza:** Se o contexto não fornecer domínio ou setor de atuação, a saída indica: "Expansão hipotética — validar aplicabilidade no domínio real".
 
-**Regra de Ouro:** Sem introduções. Markdown simples. Direto aos pontos de expansão.
+**Restrição de Formato:** Sem introduções. Markdown simples. Sem listas numeradas. Direto aos pontos de expansão.
