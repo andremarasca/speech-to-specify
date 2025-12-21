@@ -47,6 +47,7 @@
 - [ ] T008 [P] Create TextSanitizer in src/services/tts/text_sanitizer.py (strip_markdown, strip_special_characters - reference .local/edge_tts_generate.py)
 - [ ] T009 [P] Create MockTTSService in src/services/tts/mock_service.py for testing
 - [ ] T010 Create EdgeTTSService implementation in src/services/tts/edge_tts_service.py (implement synthesize, check_health, get_artifact_path)
+- [ ] T010b [P] Add integration test verifying TTSService provider can be swapped via config injection (FR-014)
 
 **Checkpoint**: Foundation ready - TTS service can be instantiated and health-checked
 
@@ -62,7 +63,7 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Unit test for text sanitization in tests/unit/test_text_sanitizer.py (markdown removal, special chars)
+- [ ] T011 [P] [US1] Unit test for text sanitization in tests/unit/test_text_sanitizer.py (markdown headers/bold/italic, code blocks, emojis, URLs, special unicode chars)
 - [ ] T012 [P] [US1] Contract test for TTSService.synthesize() in tests/contract/test_tts_service_contract.py (BC-TTS-001 through BC-TTS-004)
 - [ ] T013 [P] [US1] Unit test for TTSConfig validation in tests/unit/test_tts_config.py
 
@@ -71,6 +72,7 @@
 - [ ] T014 [US1] Implement idempotency check in EdgeTTSService.synthesize() - return cached TTSResult if file exists (BC-TTS-002)
 - [ ] T015 [US1] Implement async synthesis with timeout in EdgeTTSService.synthesize() using asyncio.wait_for (BC-TTS-001)
 - [ ] T016 [US1] Implement error isolation in EdgeTTSService - catch all exceptions, return TTSResult.error() (BC-TTS-003)
+- [ ] T016b [US1] Implement audio file integrity check in EdgeTTSService - verify file exists, size > 0, valid OGG header before returning success (FR-008)
 - [ ] T017 [US1] Add `_synthesize_and_send_audio()` method to TelegramDaemon in src/cli/daemon.py
 - [ ] T018 [US1] Integrate TTS trigger in `_handle_oracle_callback()` after bot.send_message() using asyncio.create_task()
 - [ ] T019 [US1] Implement bot.send_voice() notification when synthesis completes successfully
@@ -118,6 +120,7 @@
 - [ ] T029 [US3] Implement collect() method - scan sessions/*/audio/tts/, remove expired files
 - [ ] T030 [US3] Implement storage limit check - remove oldest files if TTS_GC_MAX_STORAGE_MB exceeded
 - [ ] T031 [US3] Add GC trigger in daemon startup or periodic background task
+- [ ] T031b [US3] Implement orphan artifact detection - mark artifacts as orphan when session terminates during synthesis
 
 **Checkpoint**: User Story 3 complete - TTS artifacts automatically cleaned up
 
@@ -131,7 +134,7 @@
 
 ### Tests for User Story 4
 
-- [ ] T032 [P] [US4] Contract test for idempotency in tests/contract/test_tts_service_contract.py (BC-TTS-002)
+- [ ] T032 [P] [US4] Contract test for concurrent idempotency in tests/contract/test_tts_service_contract.py (extends T012's BC-TTS-002 with concurrent request scenarios)
 - [ ] T033 [P] [US4] Unit test for TTSRequest.idempotency_key in tests/unit/test_tts_models.py
 
 ### Implementation for User Story 4
@@ -147,7 +150,7 @@
 
 **Purpose**: Documentation, validation, and final improvements
 
-- [ ] T036 [P] Create docs/tutorial_tts_extensibility.md (required per constitution)
+- [ ] T036 [P] Create docs/tutorial_tts_extensibility.md per constitution: (1) synthesis logic location, (2) TTS provider extension points, (3) codec configuration, (4) performance tuning, (5) storage path configuration
 - [ ] T037 [P] Update .env.example with all TTS variables and documentation
 - [ ] T038 [P] Add docstrings to all public methods in src/services/tts/
 - [ ] T039 Run quickstart.md validation (4 verification steps)

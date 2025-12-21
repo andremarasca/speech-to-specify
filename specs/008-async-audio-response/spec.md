@@ -101,9 +101,9 @@ Solicitações repetidas de síntese para o mesmo texto dentro do mesmo contexto
 
 ### Edge Cases
 
-- **Texto muito longo para síntese**: O sistema divide em segmentos ou recusa com feedback claro se exceder limite configurado
-- **Caracteres especiais ou formatação incompatível**: O serviço de síntese sanitiza o texto, removendo markdown ou símbolos que causariam problemas na fala
-- **Sessão encerrada durante síntese**: O processo completa mas o artefato é marcado como órfão para garbage collection
+- **Texto muito longo para síntese**: O sistema recusa com feedback claro se exceder `TTS_MAX_TEXT_LENGTH` (configurável via ambiente)
+- **Caracteres especiais ou formatação incompatível**: O serviço de síntese sanitiza o texto, removendo markdown, emojis, code blocks ou símbolos que causariam problemas na fala
+- **Sessão encerrada durante síntese**: O processo completa mas o artefato é marcado como órfão para garbage collection prioritária
 - **Múltiplas vozes/idiomas**: Limitado à configuração de voz única por instância (suporte a múltiplas vozes fora do escopo desta feature por restrição constitucional de simplicidade)
 - **Reconexão do usuário**: Áudios gerados durante desconexão permanecem disponíveis quando o usuário retorna à sessão
 
@@ -125,7 +125,7 @@ Solicitações repetidas de síntese para o mesmo texto dentro do mesmo contexto
 
 **Persistência e Armazenamento:**
 - **FR-007**: Sistema DEVE persistir arquivos de áudio em diretório estruturado por sessão
-- **FR-008**: Sistema DEVE verificar integridade de arquivos de áudio antes de disponibilizá-los
+- **FR-008**: Sistema DEVE verificar integridade de arquivos de áudio antes de disponibilizá-los (verificação: arquivo existe, tamanho > 0, header OGG válido)
 - **FR-009**: Sistema DEVE executar garbage collection de artefatos segundo política configurada
 
 **Resiliência:**
@@ -179,4 +179,3 @@ Solicitações repetidas de síntese para o mesmo texto dentro do mesmo contexto
 - Transcrição de áudio enviado pelo usuário (funcionalidade separada existente)
 - Customização de velocidade/tom de voz por usuário
 - Armazenamento permanente de áudios (todos são temporários com garbage collection)
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
