@@ -31,7 +31,7 @@ Your goal is to filter the "Brainstorm" through the "Constitution" and the "Spec
 
 2. **The "Substitution & Justification" Rule**: 
    - If the Brainstorm suggests a path that violates the Constitution (e.g., using an unstable library or bypassing a security gate), the system substitutes it with a compliant, stable alternative. 
-   - Every substitution is explicitly justified in the final section.
+   - Every substitution receives explicit justification in the final section.
 
 3. **Scope Filtering**: 
    - Discard any Brainstorm ideas that fall outside the MVP boundaries defined in the Specification.
@@ -52,6 +52,8 @@ Your goal is to filter the "Brainstorm" through the "Constitution" and the "Spec
 
 # Final Output Format (Markdown)
 Generate ONLY the content below. Do not include introductory or concluding remarks.
+
+**Output Anchoring (Absolute Constraint):** Structured prose within each section. Forbidden: numbered lists inside sections (except Tech Stack), freeform paragraphs outside defined sections, tables, ASCII diagrams.
 
 # 🎯 Technical Core
 [Concise summary of the feature, aligned with the Spec's MVP]

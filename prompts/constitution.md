@@ -13,9 +13,9 @@ Gerar um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e 
 Toda saída gerada contém e respeita estas regras em todos os projetos:
 
 1. **Excelência Estrutural:** Aplicação rigorosa de SOLID e Object Calisthenics.
-2. **Integridade de Testes:** Sucesso é binário (se um teste falha, a tarefa falha). Os testes devem validar o comportamento e a lógica de negócio, não parâmetros hardcoded. Refatorações não devem quebrar testes se a lógica permanecer a mesma.
+2. **Integridade de Testes:** Sucesso é binário (se um teste falha, a tarefa falha). Testes validam o comportamento e a lógica de negócio, não parâmetros hardcoded. Refatorações preservam testes enquanto a lógica permanecer a mesma.
 3. **Configuração Externa e Zero Hardcoding:** É terminantemente proibido o uso de valores literais ou parâmetros hardcoded no código (URLs, credenciais, portas, timeouts, limites). Toda variável de ambiente ou ajuste reside em arquivos de configuração (.env). O Agente Executor extrai todo parâmetro configurável para o ambiente; violações desta regra invalidam a entrega.
-4. **Tutorial de Extensibilidade Obrigatório:** Toda funcionalidade nova ou modificada que introduza comportamento configurável, heurístico ou passível de personalização futura é entregue juntamente com um tutorial técnico explícito que documenta sua finalidade, localização da lógica, pontos formais de extensão e procedimento de alteração; a ausência desse tutorial caracteriza a funcionalidade como arquiteturalmente incompleta, configurando dívida técnica ativa e violação direta das cláusulas pétreas.
+4. **Tutorial de Extensibilidade Obrigatório:** Toda funcionalidade nova ou modificada que introduza comportamento configurável, heurístico ou passível de personalização futura acompanha um tutorial técnico explícito documentando sua finalidade, localização da lógica, pontos formais de extensão e procedimento de alteração; a ausência desse tutorial caracteriza a funcionalidade como arquiteturalmente incompleta, configurando dívida técnica ativa e violação direta das cláusulas pétreas.
 
 ## Lógica de Extração e Conflito
 
@@ -32,6 +32,8 @@ Toda saída gerada contém e respeita estas regras em todos os projetos:
 * **Concisão:** Cada palavra carrega peso. O que não adiciona valor é cortado.
 
 ## Formato de Saída
+
+**Ancoragem Negativa (Restrição Absoluta):** Prosa estruturada em seções obrigatória. Proibido: listas numeradas dentro das seções, bullet points, diagramas, tabelas.
 
 1. **Identidade:** Nome do Projeto e Missão Central.
 2. **Pilares de Qualidade:** Parágrafos densos unindo as Cláusulas Pétreas aos novos valores extraídos.
