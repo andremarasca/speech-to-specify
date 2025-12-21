@@ -27,7 +27,7 @@ class TestNarrativePipeline:
         )
 
     def test_complete_pipeline_execution(self, pipeline, sample_input_content, temp_output_dir):
-        """Test that pipeline produces all 3 artifacts."""
+        """Test that pipeline produces all 5 artifacts."""
         input_data = Input(content=sample_input_content)
 
         execution = pipeline.execute(input_data)
@@ -41,14 +41,15 @@ class TestNarrativePipeline:
         assert artifacts_dir.exists()
 
         artifact_files = list(artifacts_dir.glob("*.md"))
-        assert len(artifact_files) == 4
+        assert len(artifact_files) == 5
 
         # Check file names match expected steps
         filenames = [f.name for f in artifact_files]
-        assert "01_constitution.md" in filenames
-        assert "02_specification.md" in filenames
-        assert "03_planning.md" in filenames
-        assert "04_tasks.md" in filenames
+        assert "01_semantic_normalization.md" in filenames
+        assert "02_constitution.md" in filenames
+        assert "03_specification.md" in filenames
+        assert "04_planning.md" in filenames
+        assert "05_tasks.md" in filenames
 
     def test_artifacts_have_content(self, pipeline, sample_input_content, temp_output_dir):
         """Test that generated artifacts have meaningful content."""
@@ -102,7 +103,7 @@ class TestNarrativePipeline:
 
         execution = pipeline.execute(input_data)
 
-        assert execution.total_steps == 4
+        assert execution.total_steps == 5
 
     def test_artifacts_form_chain(self, pipeline, sample_input_content, temp_output_dir):
         """Test that artifacts reference their predecessors."""
@@ -114,11 +115,33 @@ class TestNarrativePipeline:
         artifact_store = pipeline._artifact_store
         artifacts = artifact_store.list_artifacts(pipeline._current_execution.id)
 
-        assert len(artifacts) == 4
+        assert len(artifacts) == 5
         assert artifacts[0].predecessor_id is None  # First has no predecessor
         assert artifacts[1].predecessor_id == artifacts[0].id
         assert artifacts[2].predecessor_id == artifacts[1].id
         assert artifacts[3].predecessor_id == artifacts[2].id
+        assert artifacts[4].predecessor_id == artifacts[3].id
+
+    def test_constitution_has_unalterable_clauses_prepended(self, pipeline, sample_input_content, temp_output_dir):
+        """Test that constitution artifact starts with unalterable clauses."""
+        input_data = Input(content=sample_input_content)
+
+        pipeline.execute(input_data)
+
+        # Read the constitution artifact
+        constitution_path = Path(temp_output_dir) / "executions" / pipeline._current_execution.id / "artifacts" / "02_constitution.md"
+        content = constitution_path.read_text(encoding="utf-8")
+
+        # Unalterable clauses should be at the beginning (after YAML front matter)
+        assert "Cláusulas Pétreas" in content
+        assert "Excelência Estrutural" in content
+        assert "Integridade de Testes" in content
+
+        # The clauses should appear before the LLM-generated content
+        clauses_position = content.find("Cláusulas Pétreas")
+        mock_content_position = content.find("MockProvider")
+
+        assert clauses_position < mock_content_position, "Unalterable clauses should appear before LLM response"
 
 
 class TestPipelineStepSequence:
@@ -128,11 +151,12 @@ class TestPipelineStepSequence:
         """Test that pipeline has fixed step sequence."""
         steps = NarrativePipeline.STEPS
 
-        assert len(steps) == 4
-        assert steps[0].name == "constitution"
-        assert steps[1].name == "specification"
-        assert steps[2].name == "planning"
-        assert steps[3].name == "tasks"
+        assert len(steps) == 5
+        assert steps[0].name == "semantic_normalization"
+        assert steps[1].name == "constitution"
+        assert steps[2].name == "specification"
+        assert steps[3].name == "planning"
+        assert steps[4].name == "tasks"
 
     def test_step_numbers_are_sequential(self):
         """Test that step numbers are 1, 2, 3."""

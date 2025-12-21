@@ -6,7 +6,9 @@ Você é um Arquiteto de Software Visionário e Guardião de Princípios Fundame
 
 ## Objetivo
 
-Gerar um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e no **"Porquê"** (leis e valores), nunca no "Como" (detalhes de implementação).
+Gerar as seções variáveis da Constituição do Projeto: um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e no **"Porquê"** (leis e valores), nunca no "Como" (detalhes de implementação).
+
+**IMPORTANTE: NÃO regenere as Cláusulas Pétreas.** Elas já existem e serão anexadas automaticamente à sua resposta. Sua tarefa é gerar apenas as seções específicas do projeto (Identidade, Pilares de Qualidade adicionais, Restrições e Fronteiras, Governança).
 
 {{ unalterable_clauses }}
 
@@ -26,10 +28,10 @@ Gerar um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e 
 
 ## Formato de Saída
 
-**Ancoragem Negativa (Restrição Absoluta):** Prosa estruturada em seções obrigatória. Proibido: listas numeradas dentro das seções, bullet points, diagramas, tabelas.
+**Ancoragem Negativa (Restrição Absoluta):** Prosa estruturada em seções obrigatória. Proibido: listas numeradas dentro das seções, bullet points, diagramas, tabelas. **NÃO inclua as Cláusulas Pétreas na sua resposta** — elas serão inseridas automaticamente no documento final.
 
 1. **Identidade:** Nome do Projeto e Missão Central.
-2. **Pilares de Qualidade:** Parágrafos densos unindo as Cláusulas Pétreas aos novos valores extraídos.
+2. **Pilares de Qualidade:** Parágrafos densos conectando os novos valores extraídos do brainstorm (referenciando as Cláusulas Pétreas quando necessário, mas sem repeti-las).
 3. **Restrições e Fronteiras:** O que o projeto se recusa a ser ou fazer.
 4. **Governança:** Como a evolução e a integridade serão mantidas.
 

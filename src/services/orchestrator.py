@@ -6,7 +6,7 @@ from datetime import datetime
 from src.models import Input, Artifact, Execution, ExecutionStatus, LLMLog, FailureLog
 from src.services.llm.base import LLMProvider
 from src.services.persistence.base import ArtifactStore, LogStore
-from src.lib.prompts import load_prompt
+from src.lib.prompts import load_prompt, get_prompt_loader
 from src.lib.timestamps import generate_timestamp
 from src.lib.exceptions import LLMError, ValidationError, NarrativeError
 
@@ -164,6 +164,10 @@ class NarrativePipeline:
         # Call LLM with logging
         response = self._call_llm(step, prompt)
 
+        # For constitution step, prepend unalterable clauses to response
+        if step.name == "constitution":
+            response = self._prepend_unalterable_clauses(response)
+
         # Create artifact
         predecessor_id = None
         if step.number > 1:
@@ -179,6 +183,19 @@ class NarrativePipeline:
 
         return artifact
 
+    def _prepend_unalterable_clauses(self, llm_response: str) -> str:
+        """
+        Prepend unalterable clauses to LLM response for constitution artifact.
+
+        Args:
+            llm_response: The LLM's generated constitution content
+
+        Returns:
+            str: Full constitution with unalterable clauses prepended
+        """
+        unalterable_clauses = self._load_unalterable_clauses()
+        return f"{unalterable_clauses}\n\n{llm_response}"
+
     def _build_prompt(self, step: PipelineStep) -> str:
         """Build the prompt for a step with all required context."""
         # Always include the original input
@@ -190,6 +207,10 @@ class NarrativePipeline:
         if step.number >= 2 and 1 in self._artifacts:
             variables["semantic_normalization"] = self._artifacts[1].content
 
+        # For constitution step, inject unalterable clauses
+        if step.name == "constitution":
+            variables["unalterable_clauses"] = self._load_unalterable_clauses()
+
         if step.number >= 3 and 2 in self._artifacts:
             variables["constitution_content"] = self._artifacts[2].content
 
@@ -200,6 +221,11 @@ class NarrativePipeline:
             variables["planning_content"] = self._artifacts[4].content
 
         return load_prompt(step.prompt_template, **variables)
+
+    def _load_unalterable_clauses(self) -> str:
+        """Load unalterable clauses from the prompts directory."""
+        loader = get_prompt_loader()
+        return loader.load("unalterable_clauses")
 
     def _call_llm(self, step: PipelineStep, prompt: str) -> str:
         """

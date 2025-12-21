@@ -41,13 +41,15 @@ class TestFailurePreservation:
         with pytest.raises(LLMError):
             pipeline_with_failure.execute(input_data)
 
-        # Check that artifact from step 1 exists
+        # Check that artifacts from steps 1-2 exist
         exec_id = pipeline_with_failure._current_execution.id
         artifacts_dir = Path(temp_output_dir) / "executions" / exec_id / "artifacts"
 
         artifact_files = list(artifacts_dir.glob("*.md"))
-        assert len(artifact_files) == 1  # Only step 1 succeeded
-        assert "01_constitution" in artifact_files[0].name
+        assert len(artifact_files) == 2  # Steps 1 and 2 succeeded
+        filenames = [f.name for f in artifact_files]
+        assert "01_semantic_normalization" in filenames[0] or "01_semantic_normalization" in filenames[1]
+        assert "02_constitution" in filenames[0] or "02_constitution" in filenames[1]
 
     def test_failure_log_created(
         self, pipeline_with_failure, sample_input_content, temp_output_dir
@@ -91,7 +93,7 @@ class TestFailurePreservation:
         failure_path = Path(temp_output_dir) / "executions" / exec_id / "logs" / "failure.json"
 
         failure_data = json.loads(failure_path.read_text())
-        assert failure_data["failed_step"] == 2
+        assert failure_data["failed_step"] == 3  # specification is now step 3
         assert "LLMError" in failure_data["error_type"]
 
     def test_llm_logs_before_failure_preserved(
@@ -107,5 +109,5 @@ class TestFailurePreservation:
         llm_log_path = Path(temp_output_dir) / "executions" / exec_id / "logs" / "llm_traffic.jsonl"
 
         assert llm_log_path.exists()
-        lines = [l for l in llm_log_path.read_text().strip().split("\n") if l]
-        assert len(lines) >= 1  # At least step 1's log
+        lines = [l for l in llm_log_path.read_text(encoding="utf-8").strip().split("\n") if l]
+        assert len(lines) >= 2  # At least steps 1 and 2's logs
