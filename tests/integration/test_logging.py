@@ -38,7 +38,7 @@ class TestLLMLogging:
         assert llm_log_path.exists()
 
         # Count log entries (one per line in JSONL)
-        lines = [l for l in llm_log_path.read_text().strip().split("\n") if l]
+        lines = [l for l in llm_log_path.read_text(encoding="utf-8").strip().split("\n") if l]
         assert len(lines) == 4  # One per step
 
     def test_log_contains_prompt_and_response(
@@ -53,7 +53,7 @@ class TestLLMLogging:
         logs_dir = Path(temp_output_dir) / "executions" / execution.id / "logs"
         llm_log_path = logs_dir / "llm_traffic.jsonl"
 
-        for line in llm_log_path.read_text().strip().split("\n"):
+        for line in llm_log_path.read_text(encoding="utf-8").strip().split("\n"):
             log_entry = json.loads(line)
 
             assert "prompt" in log_entry
@@ -71,7 +71,7 @@ class TestLLMLogging:
         logs_dir = Path(temp_output_dir) / "executions" / execution.id / "logs"
         llm_log_path = logs_dir / "llm_traffic.jsonl"
 
-        for line in llm_log_path.read_text().strip().split("\n"):
+        for line in llm_log_path.read_text(encoding="utf-8").strip().split("\n"):
             log_entry = json.loads(line)
 
             assert "prompt_sent_at" in log_entry
@@ -89,7 +89,7 @@ class TestLLMLogging:
         logs_dir = Path(temp_output_dir) / "executions" / execution.id / "logs"
         llm_log_path = logs_dir / "llm_traffic.jsonl"
 
-        for line in llm_log_path.read_text().strip().split("\n"):
+        for line in llm_log_path.read_text(encoding="utf-8").strip().split("\n"):
             log_entry = json.loads(line)
 
             assert "provider" in log_entry
@@ -106,7 +106,7 @@ class TestLLMLogging:
         llm_log_path = logs_dir / "llm_traffic.jsonl"
 
         step_numbers = []
-        for line in llm_log_path.read_text().strip().split("\n"):
+        for line in llm_log_path.read_text(encoding="utf-8").strip().split("\n"):
             log_entry = json.loads(line)
             step_numbers.append(log_entry["step_number"])
 
@@ -123,7 +123,7 @@ class TestLLMLogging:
         llm_log_path = logs_dir / "llm_traffic.jsonl"
 
         ids = []
-        for line in llm_log_path.read_text().strip().split("\n"):
+        for line in llm_log_path.read_text(encoding="utf-8").strip().split("\n"):
             log_entry = json.loads(line)
             ids.append(log_entry["id"])
 

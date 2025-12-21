@@ -1684,7 +1684,11 @@ class VoiceOrchestrator:
             )
 
     async def _cmd_finish(self, event: TelegramEvent) -> None:
-        """Handle /done or /finish command - finalize session and transcribe."""
+        """Handle /done or /finish command - finalize session.
+        
+        Since transcription now happens immediately after each audio,
+        /done just marks the session as complete - no re-transcription needed.
+        """
         active = self.session_manager.get_active_session()
 
         if not active:
@@ -1704,19 +1708,31 @@ class VoiceOrchestrator:
 
         try:
             session = self.session_manager.finalize_session(active.id)
-
+            
+            # Count successful transcriptions (already done per-audio)
+            success_count = sum(
+                1 for entry in session.audio_entries 
+                if entry.transcription_status == TranscriptionStatus.SUCCESS
+            )
+            error_count = session.audio_count - success_count
+            
+            # Transition directly to TRANSCRIBED (transcription already done)
+            self.session_manager.transition_state(session.id, SessionState.TRANSCRIBED)
+            
+            status_emoji = "✅" if error_count == 0 else "⚠️"
+            session_name = session.intelligible_name or session.id
+            
             await self.bot.send_message(
                 event.chat_id,
-                f"✅ *Session Finalized*\n\n"
+                f"{status_emoji} *Session Finalized*\n\n"
                 f"🆔 Session: `{session.id}`\n"
+                f"📝 Name: _{escape_markdown(session_name)}_\n"
                 f"🎙️ Audio files: {session.audio_count}\n"
-                f"📁 Status: TRANSCRIBING\n\n"
-                f"⏳ Transcription starting...",
+                f"✅ Transcribed: {success_count}/{session.audio_count}\n"
+                f"📁 Status: TRANSCRIBED\n\n"
+                f"Use /transcripts to view all transcriptions.",
                 parse_mode="Markdown",
             )
-
-            # Run transcription
-            await self._run_transcription(event.chat_id, session)
 
         except InvalidStateError as e:
             await self.bot.send_message(
@@ -1908,8 +1924,11 @@ class VoiceOrchestrator:
         oracles = oracle_manager.list_oracles()
         
         # Get user preference for LLM history
-        session = self.session_manager.storage.load(session.id)
-        include_llm_history = session.ui_preferences.include_llm_history if session else True
+        current_session = self.session_manager.storage.load(session.id)
+        if current_session and current_session.ui_preferences:
+            include_llm_history = current_session.ui_preferences.include_llm_history
+        else:
+            include_llm_history = True
         
         keyboard = build_transcripts_with_oracles_keyboard(
             oracles=oracles,
@@ -1920,7 +1939,7 @@ class VoiceOrchestrator:
         await self.bot.send_message(
             chat_id,
             f"{status_emoji} *Transcription Complete*\n\n"
-            f"🆔 Session: `{session.id}`\n"
+            f"🆔 Session: `{current_session.id if current_session else session.id}`\n"
             f"✅ Success: {success_count}/{total}\n"
             f"❌ Errors: {error_count}/{total}\n"
             f"📁 Status: TRANSCRIBED",
@@ -2131,7 +2150,10 @@ class VoiceOrchestrator:
         # Build keyboard if oracles exist
         keyboard = None
         if oracles:
-            include_llm_history = target_session.ui_preferences.include_llm_history if target_session else True
+            if target_session and target_session.ui_preferences:
+                include_llm_history = target_session.ui_preferences.include_llm_history
+            else:
+                include_llm_history = True
             keyboard = build_oracle_keyboard(
                 oracles=oracles,
                 simplified=self._simplified_ui,

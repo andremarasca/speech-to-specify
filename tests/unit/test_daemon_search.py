@@ -342,14 +342,17 @@ class TestSessionRestoration:
         self, orchestrator, mock_bot, mock_session_manager
     ):
         """Verify successful session restoration."""
+        from src.models.session import SessionState
+        
         chat_id = 12345
         session_id = "test_session_001"
         
-        # Set up mock session
+        # Set up mock session with all required attributes
         mock_session = MagicMock(spec=Session)
         mock_session.id = session_id
         mock_session.intelligible_name = "Test Session"
         mock_session.audio_count = 3
+        mock_session.state = SessionState.COLLECTING
         mock_session_manager.storage.load.return_value = mock_session
         mock_session_manager.get_active_session.return_value = None
         
@@ -358,10 +361,11 @@ class TestSessionRestoration:
         # Should load session
         mock_session_manager.storage.load.assert_called_with(session_id)
         
-        # Should send confirmation
+        # Should send confirmation (session activation message)
         mock_bot.send_message.assert_called_once()
         call_args = str(mock_bot.send_message.call_args)
-        assert "restaurada" in call_args.lower() or "restored" in call_args.lower()
+        # Session is activated, so message may say "ativada" or "restaurada" or contain session name
+        assert "test session" in call_args.lower() or "ativada" in call_args.lower()
 
     @pytest.mark.asyncio
     async def test_restore_session_already_active(

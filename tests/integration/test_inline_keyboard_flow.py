@@ -37,7 +37,7 @@ async def test_inline_flow_start_status_finish(monkeypatch):
     )
     session_finalized = Session(
         id=session_active.id,
-        state=SessionState.TRANSCRIBING,
+        state=SessionState.TRANSCRIBED,  # Now transcribed directly (audio transcribed inline)
         created_at=session_active.created_at,
         chat_id=chat_id,
         intelligible_name=session_active.intelligible_name,
@@ -59,16 +59,13 @@ async def test_inline_flow_start_status_finish(monkeypatch):
         search_service=None,
     )
 
-    run_transcription = AsyncMock()
-    monkeypatch.setattr(orchestrator, "_run_transcription", run_transcription)
-
     await orchestrator.handle_event(TelegramEvent.command(chat_id=chat_id, command="start"))
     await orchestrator.handle_event(TelegramEvent.command(chat_id=chat_id, command="status"))
     await orchestrator.handle_event(TelegramEvent.command(chat_id=chat_id, command="done"))
 
     session_manager.create_session.assert_called_once_with(chat_id=chat_id)
     session_manager.finalize_session.assert_called_once_with(session_active.id)
-    run_transcription.assert_awaited_once_with(chat_id, session_finalized)
+    # Note: /done no longer calls _run_transcription - audio is transcribed inline after receipt
 
     sent_texts = []
     for call in bot.send_message.await_args_list:

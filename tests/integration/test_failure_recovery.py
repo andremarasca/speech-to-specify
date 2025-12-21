@@ -15,8 +15,9 @@ class TestFailurePreservation:
 
     @pytest.fixture
     def failing_provider(self):
-        """Create a mock provider that fails on step 2."""
-        return MockProvider(fail_on_prompts=["Especificações"])
+        """Create a mock provider that fails on step 2 (specification)."""
+        # Use a string that appears in the specification prompt
+        return MockProvider(fail_on_prompts=["Arquiteto de Requisitos"])
 
     @pytest.fixture
     def pipeline_with_failure(self, temp_output_dir, failing_provider):

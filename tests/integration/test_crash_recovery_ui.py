@@ -318,12 +318,17 @@ class TestCheckpointSaveOnAudioReceipt:
     """Tests for checkpoint saving after audio receipt."""
 
     async def test_checkpoint_saved_after_audio(self):
-        """Checkpoint should be saved after each audio receipt."""
+        """Checkpoint should be saved after each audio receipt.
+        
+        Note: After receiving audio, the new flow immediately transcribes it,
+        so the checkpoint state reflects the transcription result.
+        """
         from src.cli.daemon import VoiceOrchestrator
         from src.services.telegram.adapter import TelegramEvent
         
         mock_bot = MagicMock()
         mock_bot.send_message = AsyncMock()
+        mock_bot.send_chat_action = AsyncMock()
         mock_bot.download_voice = AsyncMock(return_value=1000)
         
         session = Session(
@@ -347,9 +352,18 @@ class TestCheckpointSaveOnAudioReceipt:
         )
         mock_session_manager.handle_audio_receipt.return_value = (session, audio_entry)
         
+        # Mock transcription service
+        mock_transcription = MagicMock()
+        mock_transcription.transcribe.return_value = MagicMock(
+            success=True,
+            text="test transcription",
+            duration_seconds=30.0,
+        )
+        
         orchestrator = VoiceOrchestrator(
             bot=mock_bot,
             session_manager=mock_session_manager,
+            transcription_service=mock_transcription,
         )
         
         event = TelegramEvent.voice(
@@ -364,12 +378,14 @@ class TestCheckpointSaveOnAudioReceipt:
                     with patch("pathlib.Path.unlink"):
                         await orchestrator._handle_voice(event)
             
-            # Verify checkpoint was saved
-            mock_save.assert_called_once()
-            call_kwargs = mock_save.call_args.kwargs
-            assert call_kwargs["session"] == session
-            assert call_kwargs["audio_sequence"] == 1
-            assert call_kwargs["processing_state"] == "COLLECTING"
+            # Verify checkpoint was saved (may be called multiple times during transcription)
+            assert mock_save.called
+            # Verify the final checkpoint reflects transcribed state
+            final_call_kwargs = mock_save.call_args.kwargs
+            assert final_call_kwargs["session"] == session
+            assert final_call_kwargs["audio_sequence"] == 1
+            # After immediate transcription, state is TRANSCRIBED
+            assert final_call_kwargs["processing_state"] == "TRANSCRIBED"
 
 
 class TestCompleteRecoveryFlow:
