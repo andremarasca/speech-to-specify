@@ -310,11 +310,17 @@ class OracleConfig(BaseSettings):
     
     Per plan.md for 007-contextual-oracle-feedback.
     
+    Oracle LLM configuration is INDEPENDENT from NARRATE_PROVIDER.
+    This allows using fast models (deepseek-chat, gpt-4o) for oracle feedback
+    while NARRATE_PROVIDER uses reasoning models (deepseek-reasoner).
+    
     Attributes:
         oracles_dir: Directory containing oracle personality markdown files
         oracle_placeholder: Placeholder string for context injection
         oracle_cache_ttl: Cache TTL in seconds for oracle file scanning
         llm_timeout_seconds: Timeout for LLM API requests
+        oracle_provider: LLM provider for oracles (independent from NARRATE_PROVIDER)
+        oracle_model: Model to use for oracle responses
     """
 
     oracles_dir: str = Field(
@@ -339,6 +345,19 @@ class OracleConfig(BaseSettings):
         default=30,
         alias="LLM_TIMEOUT_SECONDS",
         description="Timeout for LLM API requests in seconds",
+    )
+
+    # Independent Oracle LLM Configuration (FR-014)
+    oracle_provider: str = Field(
+        default="deepseek",
+        alias="ORACLE_PROVIDER",
+        description="LLM provider for oracles: deepseek, openai, anthropic, mock",
+    )
+
+    oracle_model: str = Field(
+        default="deepseek-chat",
+        alias="ORACLE_MODEL",
+        description="Model to use for oracle responses (should be fast, not reasoning)",
     )
 
     model_config = {

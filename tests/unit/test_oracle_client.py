@@ -3,6 +3,9 @@
 Per tasks.md T043 for 007-contextual-oracle-feedback.
 
 Tests error handling, timeout behavior, and response handling.
+
+Note: OracleClient uses ORACLE_PROVIDER/ORACLE_MODEL configuration
+which is independent from NARRATE_PROVIDER.
 """
 
 import pytest
@@ -56,22 +59,26 @@ class TestOracleClientInit:
     """Tests for OracleClient initialization."""
     
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    def test_uses_config_timeout(self, mock_settings, mock_config):
+    def test_uses_config_timeout(self, mock_config):
         """Client uses timeout from config by default."""
-        mock_config.return_value = Mock(llm_timeout_seconds=45)
-        mock_settings.return_value = Mock()
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=45,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
         assert client.timeout_seconds == 45
     
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    def test_override_timeout(self, mock_settings, mock_config):
+    def test_override_timeout(self, mock_config):
         """Client accepts custom timeout override."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock()
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient(timeout_seconds=60)
         
@@ -83,11 +90,13 @@ class TestOracleClientRequestFeedback:
     
     @pytest.mark.asyncio
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    async def test_successful_request(self, mock_settings, mock_config):
+    async def test_successful_request(self, mock_config):
         """Successful LLM request returns content."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock(llm_provider="mock")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
@@ -105,11 +114,13 @@ class TestOracleClientRequestFeedback:
     
     @pytest.mark.asyncio
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    async def test_empty_response(self, mock_settings, mock_config):
+    async def test_empty_response(self, mock_config):
         """Empty LLM response returns error."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock(llm_provider="mock")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
@@ -125,11 +136,13 @@ class TestOracleClientRequestFeedback:
     
     @pytest.mark.asyncio
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    async def test_timeout_handling(self, mock_settings, mock_config):
+    async def test_timeout_handling(self, mock_config):
         """Timeout returns timed_out flag."""
-        mock_config.return_value = Mock(llm_timeout_seconds=1)  # Short timeout
-        mock_settings.return_value = Mock(llm_provider="mock")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=1,  # Short timeout
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
@@ -156,11 +169,13 @@ class TestOracleClientRequestFeedback:
     
     @pytest.mark.asyncio
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    async def test_llm_error_handling(self, mock_settings, mock_config):
+    async def test_llm_error_handling(self, mock_config):
         """LLMError returns structured error response."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock(llm_provider="mock")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
@@ -180,11 +195,13 @@ class TestOracleClientRequestFeedback:
     
     @pytest.mark.asyncio
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    async def test_unexpected_error_handling(self, mock_settings, mock_config):
+    async def test_unexpected_error_handling(self, mock_config):
         """Unexpected exceptions return generic error."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock(llm_provider="mock")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="mock",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         
@@ -204,11 +221,13 @@ class TestOracleClientGetProvider:
     """Tests for provider instantiation."""
     
     @patch('src.services.llm.oracle_client.get_oracle_config')
-    @patch('src.services.llm.oracle_client.get_settings')
-    def test_unknown_provider_raises_error(self, mock_settings, mock_config):
+    def test_unknown_provider_raises_error(self, mock_config):
         """Unknown provider name raises LLMError."""
-        mock_config.return_value = Mock(llm_timeout_seconds=30)
-        mock_settings.return_value = Mock(llm_provider="unknown_provider")
+        mock_config.return_value = Mock(
+            llm_timeout_seconds=30,
+            oracle_provider="unknown_provider",
+            oracle_model="test-model",
+        )
         
         client = OracleClient()
         

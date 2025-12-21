@@ -25,6 +25,7 @@ O problema central é a natureza linear e volátil dos brainstorms por áudio. O
 - O título do markdown (primeira linha) define o nome exibido no botão
 - Respostas de LLM são persistidas e podem ser incluídas no contexto de interações futuras
 - A inclusão de histórico de LLM no contexto é configurável pelo usuário
+- **Oráculos usam configuração de LLM independente** de `NARRATE_PROVIDER` (que pode usar modelos de raciocínio lentos como `deepseek-reasoner`). Oráculos requerem modelos rápidos e fluidos para feedback em tempo real.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -150,6 +151,7 @@ Como usuário, quero que o sistema continue funcionando de forma degradada quand
 - **FR-011**: O sistema DEVE exibir mensagem informativa quando o diretório de personalidades estiver vazio.
 - **FR-012**: O sistema DEVE exibir mensagem informativa quando não houver transcrições para analisar.
 - **FR-013**: O sistema DEVE alertar o usuário quando operando em modo de memória volátil (falha de persistência).
+- **FR-014**: O sistema DEVE usar configuração de LLM independente para oráculos (`ORACLE_PROVIDER`, `ORACLE_MODEL`), separada de `NARRATE_PROVIDER`, permitindo modelos rápidos para feedback fluido enquanto o provider principal usa modelos de raciocínio.
 
 ### Key Entities
 
@@ -177,3 +179,4 @@ Como usuário, quero que o sistema continue funcionando de forma degradada quand
 - A persistência de respostas de LLM utiliza o mesmo mecanismo de armazenamento das transcrições (sistema de arquivos da sessão).
 - O limite de 64 bytes do callback_data do Telegram é respeitado truncando ou ignorando caminhos muito longos.
 - A ordem cronológica é determinada pelo timestamp de criação do conteúdo (áudio ou resposta de LLM).
+- A configuração de LLM para oráculos (`ORACLE_PROVIDER`, `ORACLE_MODEL`) é independente de `NARRATE_PROVIDER`. Se não configurada, assume valores padrão otimizados para velocidade (ex: `deepseek` com `deepseek-chat`).

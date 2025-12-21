@@ -4,6 +4,14 @@ Per contracts/telegram-callbacks.md for 007-contextual-oracle-feedback.
 
 This module handles LLM API requests with timeout handling and
 error recovery for oracle feedback.
+
+IMPORTANT: Oracle LLM configuration is INDEPENDENT from NARRATE_PROVIDER.
+This allows using fast models (deepseek-chat, gpt-4o) for oracle feedback
+while NARRATE_PROVIDER uses reasoning models (deepseek-reasoner).
+
+Configuration:
+    ORACLE_PROVIDER: LLM provider for oracles (default: deepseek)
+    ORACLE_MODEL: Model for oracle responses (default: deepseek-chat)
 """
 
 import asyncio
@@ -11,7 +19,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from src.lib.config import get_settings, get_oracle_config
+from src.lib.config import get_oracle_config
 from src.lib.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
@@ -41,6 +49,9 @@ class OracleClient:
     
     Per contracts/telegram-callbacks.md.
     
+    Uses ORACLE_PROVIDER and ORACLE_MODEL configuration,
+    which is INDEPENDENT from NARRATE_PROVIDER.
+    
     Handles:
         - LLM API requests with configurable timeout
         - Error handling and recovery
@@ -54,9 +65,8 @@ class OracleClient:
         Args:
             timeout_seconds: Override default timeout (from config)
         """
-        oracle_config = get_oracle_config()
-        self.timeout_seconds = timeout_seconds or oracle_config.llm_timeout_seconds
-        self._settings = get_settings()
+        self._oracle_config = get_oracle_config()
+        self.timeout_seconds = timeout_seconds or self._oracle_config.llm_timeout_seconds
     
     async def request_feedback(self, prompt: str) -> OracleResponse:
         """
@@ -121,27 +131,33 @@ class OracleClient:
     
     def _get_provider(self):
         """
-        Get the configured LLM provider instance.
+        Get the configured LLM provider instance for oracles.
+        
+        Uses ORACLE_PROVIDER and ORACLE_MODEL configuration,
+        which is INDEPENDENT from NARRATE_PROVIDER.
         
         Returns:
-            LLMProvider implementation
+            LLMProvider implementation configured for oracle use
         """
-        provider_name = self._settings.llm_provider
+        provider_name = self._oracle_config.oracle_provider
+        model = self._oracle_config.oracle_model
+        
+        logger.debug(f"Creating oracle provider: {provider_name} with model: {model}")
         
         if provider_name == "openai":
             from src.services.llm.openai import OpenAIProvider
-            return OpenAIProvider(timeout=self.timeout_seconds)
+            return OpenAIProvider(model=model, timeout=self.timeout_seconds)
         elif provider_name == "anthropic":
             from src.services.llm.anthropic import AnthropicProvider
-            return AnthropicProvider(timeout=self.timeout_seconds)
+            return AnthropicProvider(model=model, timeout=self.timeout_seconds)
         elif provider_name == "deepseek":
             from src.services.llm.deepseek import DeepSeekProvider
-            return DeepSeekProvider(timeout=self.timeout_seconds)
+            return DeepSeekProvider(model=model, timeout=self.timeout_seconds)
         elif provider_name == "mock":
             from src.services.llm.mock import MockProvider
             return MockProvider()
         else:
             raise LLMError(
                 provider=provider_name,
-                message=f"Unknown LLM provider: {provider_name}",
+                message=f"Unknown oracle provider: {provider_name}",
             )
