@@ -1096,7 +1096,7 @@ class VoiceOrchestrator:
         # Create LLM entry
         llm_entry = LlmEntry(
             sequence=sequence,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
             oracle_name=oracle.name,
             oracle_id=oracle.id,
             response_filename=filename,
@@ -1105,7 +1105,7 @@ class VoiceOrchestrator:
         
         # Add to session and save
         session.llm_entries.append(llm_entry)
-        self.session_manager.save_session(session)
+        self.session_manager.storage.save(session)
         
         logger.debug(f"Persisted oracle response: {filename}")
 
@@ -1210,7 +1210,7 @@ class VoiceOrchestrator:
             new_state = active.ui_preferences.include_llm_history
             
             # Save session
-            self.session_manager.save_session(active)
+            self.session_manager.storage.save(active)
             
             # Send confirmation
             if new_state:

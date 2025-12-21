@@ -27,8 +27,10 @@ from src.services.tts.text_sanitizer import TextSanitizer
 logger = logging.getLogger(__name__)
 
 
-# OGG file magic bytes for validation
+# Audio file magic bytes for validation
 OGG_MAGIC_BYTES = b"OggS"
+MP3_SYNC_WORD = b"\xff\xf3"  # Edge-tts produces MP3 regardless of file extension
+MP3_SYNC_ALT = b"\xff\xfb"   # Alternative MP3 sync word
 
 
 class EdgeTTSService(TTSService):
@@ -174,10 +176,15 @@ class EdgeTTSService(TTSService):
                 return False
             
             # For OGG format, check magic bytes
+            # Note: Edge-tts actually produces MP3 files regardless of extension
             if self.config.format == "ogg":
                 with open(file_path, "rb") as f:
                     header = f.read(4)
-                    if header != OGG_MAGIC_BYTES:
+                    # Accept both OGG and MP3 headers since edge-tts produces MP3
+                    is_ogg = header == OGG_MAGIC_BYTES
+                    is_mp3 = header[:2] in (MP3_SYNC_WORD, MP3_SYNC_ALT)
+                    if not (is_ogg or is_mp3):
+                        logger.warning(f"Invalid audio header: {header[:4].hex()}")
                         return False
             
             return True
