@@ -245,6 +245,7 @@ class SessionStorage:
             sessions/{id}/audio/
             sessions/{id}/transcripts/
             sessions/{id}/process/
+            sessions/{id}/llm_responses/
 
         Args:
             session: Session to create folders for
@@ -256,5 +257,6 @@ class SessionStorage:
         session.audio_path(self.sessions_dir).mkdir(exist_ok=True)
         session.transcripts_path(self.sessions_dir).mkdir(exist_ok=True)
         session.process_path(self.sessions_dir).mkdir(exist_ok=True)
+        session.llm_responses_path(self.sessions_dir).mkdir(exist_ok=True)  # NEW for 007
 
         logger.debug(f"Created session folder structure at {session_path}")

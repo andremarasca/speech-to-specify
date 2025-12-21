@@ -97,18 +97,21 @@ class UIPreferences:
     """User interface preferences stored per-session.
     
     Per data-model.md for 005-telegram-ux-overhaul.
-    Minimal footprint for MVP.
+    Extended for 007-contextual-oracle-feedback.
     
     Attributes:
         simplified_ui: When true, no decorative emojis, explicit text descriptions
+        include_llm_history: When true, prior LLM responses are included in context (default: True)
     """
     
     simplified_ui: bool = False
+    include_llm_history: bool = True  # NEW for 007-contextual-oracle-feedback
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "simplified_ui": self.simplified_ui,
+            "include_llm_history": self.include_llm_history,
         }
     
     @classmethod
@@ -116,6 +119,7 @@ class UIPreferences:
         """Create from dictionary (JSON deserialization)."""
         return cls(
             simplified_ui=data.get("simplified_ui", False),
+            include_llm_history=data.get("include_llm_history", True),
         )
 
 

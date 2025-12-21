@@ -256,6 +256,97 @@ class ErrorEntry:
 
 
 @dataclass
+class ContextSnapshot:
+    """
+    Captures the context state at the moment of an LLM request (for auditability).
+    
+    Per data-model.md for 007-contextual-oracle-feedback.
+    
+    Attributes:
+        transcript_count: Number of transcripts included (>= 0)
+        llm_response_count: Number of prior LLM responses included (>= 0)
+        include_llm_history: Whether LLM history was enabled
+        total_tokens_estimate: Estimated token count (optional, >= 0 or None)
+    """
+    
+    transcript_count: int
+    llm_response_count: int
+    include_llm_history: bool
+    total_tokens_estimate: Optional[int] = None
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "transcript_count": self.transcript_count,
+            "llm_response_count": self.llm_response_count,
+            "include_llm_history": self.include_llm_history,
+            "total_tokens_estimate": self.total_tokens_estimate,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "ContextSnapshot":
+        """Create from dictionary (JSON deserialization)."""
+        return cls(
+            transcript_count=data["transcript_count"],
+            llm_response_count=data["llm_response_count"],
+            include_llm_history=data["include_llm_history"],
+            total_tokens_estimate=data.get("total_tokens_estimate"),
+        )
+
+
+@dataclass
+class LlmEntry:
+    """
+    Represents one LLM response stored in a session.
+    
+    Per data-model.md for 007-contextual-oracle-feedback.
+    
+    Attributes:
+        sequence: 1-indexed order of LLM responses in session (>= 1)
+        created_at: Timestamp when response was generated (UTC)
+        oracle_name: Display name of the oracle used (non-empty)
+        oracle_id: 8-char hash identifier of the oracle (matches Oracle.id)
+        response_filename: Filename in llm_responses/ folder (pattern: {seq}_{name}.txt)
+        context_snapshot: State of context at request time (embedded object)
+    
+    Validation Rules:
+        - sequence must be unique within session's llm_entries
+        - response_filename must exist in session's llm_responses/ directory
+        - oracle_id should match a known oracle (warning if orphaned)
+    """
+    
+    sequence: int
+    created_at: datetime
+    oracle_name: str
+    oracle_id: str
+    response_filename: str
+    context_snapshot: ContextSnapshot
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "sequence": self.sequence,
+            "created_at": self.created_at.isoformat(),
+            "oracle_name": self.oracle_name,
+            "oracle_id": self.oracle_id,
+            "response_filename": self.response_filename,
+            "context_snapshot": self.context_snapshot.to_dict(),
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "LlmEntry":
+        """Create from dictionary (JSON deserialization)."""
+        return cls(
+            sequence=data["sequence"],
+            created_at=datetime.fromisoformat(data["created_at"]),
+            oracle_name=data["oracle_name"],
+            oracle_id=data["oracle_id"],
+            response_filename=data["response_filename"],
+            context_snapshot=ContextSnapshot.from_dict(data["context_snapshot"]),
+        )
+
+
+@dataclass
 class Session:
     """
     Represents a voice capture session.
@@ -291,6 +382,7 @@ class Session:
     finalized_at: Optional[datetime] = None
     audio_entries: list[AudioEntry] = field(default_factory=list)
     errors: list[ErrorEntry] = field(default_factory=list)
+    llm_entries: list[LlmEntry] = field(default_factory=list)  # NEW for 007-contextual-oracle-feedback
     reopen_count: int = 0  # NEW: How many times session was reopened
     processing_status: ProcessingStatus = ProcessingStatus.PENDING  # NEW
     # UI presentation layer fields (005-telegram-ux-overhaul)
@@ -313,6 +405,10 @@ class Session:
         """Get the path to the process subdirectory."""
         return self.folder_path(sessions_root) / "process"
 
+    def llm_responses_path(self, sessions_root: Path) -> Path:
+        """Get the path to the llm_responses subdirectory."""
+        return self.folder_path(sessions_root) / "llm_responses"
+
     def metadata_path(self, sessions_root: Path) -> Path:
         """Get the path to the metadata.json file."""
         return self.folder_path(sessions_root) / "metadata.json"
@@ -321,6 +417,18 @@ class Session:
     def audio_count(self) -> int:
         """Get the number of audio entries."""
         return len(self.audio_entries)
+
+    @property
+    def llm_count(self) -> int:
+        """Get the number of LLM response entries."""
+        return len(self.llm_entries)
+
+    @property
+    def next_llm_sequence(self) -> int:
+        """Get the next available LLM sequence number."""
+        if not self.llm_entries:
+            return 1
+        return max(e.sequence for e in self.llm_entries) + 1
 
     @property
     def next_sequence(self) -> int:
@@ -383,6 +491,7 @@ class Session:
             "finalized_at": self.finalized_at.isoformat() if self.finalized_at else None,
             "audio_entries": [e.to_dict() for e in self.audio_entries],
             "errors": [e.to_dict() for e in self.errors],
+            "llm_entries": [e.to_dict() for e in self.llm_entries],  # NEW for 007
             "reopen_count": self.reopen_count,
             "processing_status": self.processing_status.value,
             # UI presentation layer fields (005-telegram-ux-overhaul)
@@ -419,6 +528,7 @@ class Session:
             ),
             audio_entries=[AudioEntry.from_dict(e) for e in data.get("audio_entries", [])],
             errors=[ErrorEntry.from_dict(e) for e in data.get("errors", [])],
+            llm_entries=[LlmEntry.from_dict(e) for e in data.get("llm_entries", [])],  # NEW for 007
             reopen_count=data.get("reopen_count", 0),
             processing_status=ProcessingStatus(
                 data.get("processing_status", "PENDING")

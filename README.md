@@ -295,6 +295,60 @@ sessions/
 | `PROCESSED` | All processing complete |
 | `ERROR` | Unrecoverable error occurred |
 
+## Contextual Oracle Feedback (007-contextual-oracle-feedback)
+
+After transcription, you can request AI feedback from multiple "oracle" personalities. Each oracle analyzes your transcripts with a distinct perspective.
+
+### Oracle Buttons
+
+After transcription completes, you'll see buttons for available oracles:
+- 🔮 **Cético** - Skeptical analysis, identifies risks and assumptions
+- 🔮 **Visionário** - Expansive thinking, explores possibilities  
+- 🔮 **Otimista** - Finds strengths and constructive paths forward
+
+Click any oracle button to receive contextual feedback that references your transcript content.
+
+### Configuration
+
+Add to your `.env` file:
+
+```bash
+# Oracle Configuration
+ORACLES_DIR=prompts/oracles    # Directory containing oracle files
+ORACLE_PLACEHOLDER={{CONTEXT}} # Placeholder for context injection
+ORACLE_CACHE_TTL=10            # Cache refresh interval (seconds)
+LLM_TIMEOUT_SECONDS=30         # Timeout for LLM requests
+```
+
+### Adding Custom Oracles
+
+Create a new `.md` file in `prompts/oracles/`:
+
+```markdown
+# My Custom Oracle
+
+You are a [personality description].
+
+{{CONTEXT}}
+
+Provide feedback in [specific format].
+```
+
+The oracle appears automatically in the keyboard after the cache refreshes (~10 seconds).
+
+### LLM History Toggle
+
+The **🔗 Histórico: ON** button controls "spiral feedback":
+- **ON** (default): Subsequent oracle requests include prior oracle responses
+- **OFF**: Each oracle only sees transcripts, not prior LLM responses
+
+This allows iterative analysis where oracles build upon each other's insights.
+
+### Documentation
+
+- [Tutorial: Adding Oracles](docs/tutorial_adding_oracles.md)
+- [Tutorial: Context Management](docs/tutorial_context_management.md)
+
 ## Interactive UI Features (005-telegram-ux-overhaul)
 
 The bot includes an enhanced interactive experience with inline keyboards:

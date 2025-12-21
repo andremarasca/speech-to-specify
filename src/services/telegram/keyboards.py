@@ -511,6 +511,67 @@ def build_transcripts_keyboard(simplified: bool = False) -> InlineKeyboardMarkup
     ])
 
 
+def build_transcripts_with_oracles_keyboard(
+    oracles: list,  # list[Oracle]
+    simplified: bool = False,
+    include_llm_history: bool = True,
+) -> InlineKeyboardMarkup:
+    """
+    Build keyboard with transcript actions and oracle buttons.
+    
+    Shows view transcripts button, then oracle buttons (if any), then toggle.
+    Per 007-contextual-oracle-feedback.
+    
+    Args:
+        oracles: List of available Oracle objects
+        simplified: Use simplified button labels (no emojis)
+        include_llm_history: Current state of LLM history toggle
+        
+    Returns:
+        Combined InlineKeyboardMarkup
+    """
+    from src.lib.messages import (
+        BUTTON_ORACLE_PREFIX,
+        BUTTON_ORACLE_HISTORY_ON,
+        BUTTON_ORACLE_HISTORY_ON_SIMPLIFIED,
+        BUTTON_ORACLE_HISTORY_OFF,
+        BUTTON_ORACLE_HISTORY_OFF_SIMPLIFIED,
+    )
+    
+    buttons = []
+    
+    # First: View transcripts button
+    view_label = BUTTON_TRANSCRIPTS_SIMPLIFIED if simplified else BUTTON_TRANSCRIPTS
+    buttons.append([
+        InlineKeyboardButton(view_label, callback_data="action:view_full")
+    ])
+    
+    # Then: Oracle buttons (if any)
+    if oracles:
+        for oracle in oracles:
+            if simplified:
+                label = oracle.name
+            else:
+                label = f"{BUTTON_ORACLE_PREFIX} {oracle.name}"
+            
+            callback_data = f"oracle:{oracle.id}"
+            buttons.append([
+                InlineKeyboardButton(label, callback_data=callback_data)
+            ])
+        
+        # Add history toggle button
+        if include_llm_history:
+            toggle_label = BUTTON_ORACLE_HISTORY_ON_SIMPLIFIED if simplified else BUTTON_ORACLE_HISTORY_ON
+        else:
+            toggle_label = BUTTON_ORACLE_HISTORY_OFF_SIMPLIFIED if simplified else BUTTON_ORACLE_HISTORY_OFF
+        
+        buttons.append([
+            InlineKeyboardButton(toggle_label, callback_data="toggle:llm_history")
+        ])
+    
+    return InlineKeyboardMarkup(buttons)
+
+
 def build_preferences_keyboard(simplified: bool = False) -> InlineKeyboardMarkup:
     """Constrói teclado de preferências."""
     simple = BUTTON_PREF_SIMPLE_SIMPLIFIED if simplified else BUTTON_PREF_SIMPLE
@@ -588,3 +649,93 @@ def build_file_list_keyboard(files: list[tuple[str, str, int]]) -> InlineKeyboar
         ])
     
     return InlineKeyboardMarkup(buttons)
+
+
+# =============================================================================
+# Oracle Keyboards (007-contextual-oracle-feedback)
+# =============================================================================
+
+
+def build_oracle_keyboard(
+    oracles: list,  # list[Oracle] - using list to avoid circular import
+    simplified: bool = False,
+    include_llm_history: bool = True,
+) -> InlineKeyboardMarkup:
+    """
+    Build inline keyboard with oracle buttons.
+    
+    Per contracts/telegram-callbacks.md for 007-contextual-oracle-feedback.
+    
+    Args:
+        oracles: List of available Oracle objects
+        simplified: Use simplified button labels (no emojis)
+        include_llm_history: Current state of LLM history toggle
+        
+    Returns:
+        InlineKeyboardMarkup with one button per oracle plus toggle
+    """
+    from src.lib.messages import (
+        BUTTON_ORACLE_PREFIX,
+        BUTTON_ORACLE_HISTORY_ON,
+        BUTTON_ORACLE_HISTORY_ON_SIMPLIFIED,
+        BUTTON_ORACLE_HISTORY_OFF,
+        BUTTON_ORACLE_HISTORY_OFF_SIMPLIFIED,
+    )
+    
+    buttons = []
+    
+    # Add oracle buttons (one per row for readability)
+    for oracle in oracles:
+        if simplified:
+            label = oracle.name
+        else:
+            label = f"{BUTTON_ORACLE_PREFIX} {oracle.name}"
+        
+        # Callback format: oracle:{8-char-id} = 15 bytes max (well under 64)
+        callback_data = f"oracle:{oracle.id}"
+        
+        buttons.append([
+            InlineKeyboardButton(label, callback_data=callback_data)
+        ])
+    
+    # Add history toggle button (Per BC-TC-011, BC-TC-012)
+    if include_llm_history:
+        toggle_label = BUTTON_ORACLE_HISTORY_ON_SIMPLIFIED if simplified else BUTTON_ORACLE_HISTORY_ON
+    else:
+        toggle_label = BUTTON_ORACLE_HISTORY_OFF_SIMPLIFIED if simplified else BUTTON_ORACLE_HISTORY_OFF
+    
+    buttons.append([
+        InlineKeyboardButton(toggle_label, callback_data="toggle:llm_history")
+    ])
+    
+    return InlineKeyboardMarkup(buttons)
+
+
+def build_oracle_retry_keyboard(
+    oracle_id: str,
+    simplified: bool = False,
+) -> InlineKeyboardMarkup:
+    """
+    Build keyboard with retry button after oracle error/timeout.
+    
+    Per BC-TC-007, BC-TC-008.
+    
+    Args:
+        oracle_id: ID of oracle to retry
+        simplified: Use simplified button labels
+        
+    Returns:
+        InlineKeyboardMarkup with retry button
+    """
+    from src.lib.messages import (
+        BUTTON_ORACLE_RETRY,
+        BUTTON_ORACLE_RETRY_SIMPLIFIED,
+    )
+    
+    label = BUTTON_ORACLE_RETRY_SIMPLIFIED if simplified else BUTTON_ORACLE_RETRY
+    callback_data = f"retry:oracle:{oracle_id}"
+    
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data=callback_data)]
+    ])
+

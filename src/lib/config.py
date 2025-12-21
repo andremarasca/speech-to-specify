@@ -305,15 +305,77 @@ def get_search_config() -> SearchConfig:
     return _search_config
 
 
+class OracleConfig(BaseSettings):
+    """Configuration for contextual oracle feedback.
+    
+    Per plan.md for 007-contextual-oracle-feedback.
+    
+    Attributes:
+        oracles_dir: Directory containing oracle personality markdown files
+        oracle_placeholder: Placeholder string for context injection
+        oracle_cache_ttl: Cache TTL in seconds for oracle file scanning
+        llm_timeout_seconds: Timeout for LLM API requests
+    """
+
+    oracles_dir: str = Field(
+        default="prompts/oracles",
+        alias="ORACLES_DIR",
+        description="Directory containing oracle personality markdown files",
+    )
+
+    oracle_placeholder: str = Field(
+        default="{{CONTEXT}}",
+        alias="ORACLE_PLACEHOLDER",
+        description="Placeholder string for context injection in oracle prompts",
+    )
+
+    oracle_cache_ttl: int = Field(
+        default=10,
+        alias="ORACLE_CACHE_TTL",
+        description="Cache TTL in seconds for oracle file scanning",
+    )
+
+    llm_timeout_seconds: int = Field(
+        default=30,
+        alias="LLM_TIMEOUT_SECONDS",
+        description="Timeout for LLM API requests in seconds",
+    )
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "populate_by_name": True,
+    }
+
+    @property
+    def oracles_path(self) -> Path:
+        """Get oracles directory as Path."""
+        return Path(self.oracles_dir)
+
+
+# Oracle config instance (lazy loaded)
+_oracle_config: OracleConfig | None = None
+
+
+def get_oracle_config() -> OracleConfig:
+    """Get the oracle configuration instance."""
+    global _oracle_config
+    if _oracle_config is None:
+        _oracle_config = OracleConfig()
+    return _oracle_config
+
+
 def reset_all_configs() -> None:
     """Reset all configuration instances (useful for testing)."""
-    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config, _search_config
+    global _settings, _telegram_config, _whisper_config, _session_config, _ui_config, _search_config, _oracle_config
     _settings = None
     _telegram_config = None
     _whisper_config = None
     _session_config = None
     _ui_config = None
     _search_config = None
+    _oracle_config = None
 
 
 class UIConfig(BaseSettings):

@@ -553,3 +553,21 @@ class TelegramBotAdapter:
         await file.download_to_drive(destination)
 
         return destination.stat().st_size
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> None:
+        """
+        Send chat action to indicate bot activity.
+        
+        Per BC-TC-006 from 007-contextual-oracle-feedback.
+
+        Args:
+            chat_id: Target chat ID
+            action: Chat action (typing, upload_document, etc.)
+        """
+        if not self._app:
+            raise RuntimeError("Bot not started")
+
+        try:
+            await self._app.bot.send_chat_action(chat_id=chat_id, action=action)
+        except Exception as e:
+            logger.warning(f"Failed to send chat action: {e}")

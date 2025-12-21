@@ -278,6 +278,12 @@ class VoiceOrchestrator:
             await self._handle_search_select_callback(event, callback_value)
         elif callback_action == "pref":
             await self._handle_pref_callback(event, callback_value)
+        elif callback_action == "oracle":
+            # 007-contextual-oracle-feedback: Handle oracle:{oracle_id} callbacks
+            await self._handle_oracle_callback(event, callback_value)
+        elif callback_action == "toggle":
+            # 007-contextual-oracle-feedback: Handle toggle:llm_history callbacks
+            await self._handle_toggle_callback(event, callback_value)
         else:
             logger.warning(
                 "Unknown callback action",
@@ -775,6 +781,7 @@ class VoiceOrchestrator:
         - retry:transcribe - Retry transcription
         - retry:send_message - Retry sending message
         - retry:last_action - Retry the last failed action
+        - retry:oracle:{id} - Retry oracle feedback request (007-contextual-oracle-feedback)
         """
         logger.debug(f"Retry callback: {retry_action}")
         
@@ -819,6 +826,10 @@ class VoiceOrchestrator:
                 event.chat_id,
                 "🔄 Please try your last action again.",
             )
+        elif retry_action.startswith("oracle:"):
+            # 007-contextual-oracle-feedback: Retry oracle feedback
+            oracle_id = retry_action.split(":", 1)[1]
+            await self._handle_oracle_callback(event, oracle_id)
         else:
             logger.warning(f"Unknown retry action: {retry_action}")
             await self.bot.send_message(
@@ -859,6 +870,277 @@ class VoiceOrchestrator:
         # Update the keyboard in the original message if possible
         # (This would require editing the message, which is a nice-to-have)
         # For now, we just send a confirmation message.
+
+    # =========================================================================
+    # Oracle Handlers (007-contextual-oracle-feedback)
+    # =========================================================================
+
+    async def _handle_oracle_callback(self, event: TelegramEvent, oracle_id: str) -> None:
+        """Handle oracle:{oracle_id} callback - request feedback from oracle.
+        
+        Per BC-TC-003 to BC-TC-010 from 007-contextual-oracle-feedback.
+        
+        1. Validate session has transcripts
+        2. Load oracle by ID
+        3. Build context from session
+        4. Send typing indicator
+        5. Request LLM response
+        6. Persist response to session
+        7. Send response to user
+        8. Update keyboard with new state
+        """
+        from src.lib.config import get_oracle_config, get_session_config
+        from src.services.oracle.manager import OracleManager
+        from src.services.llm.context_builder import ContextBuilder
+        from src.services.llm.prompt_injector import PromptInjector
+        from src.services.llm.oracle_client import OracleClient
+        from src.services.telegram.keyboards import (
+            build_oracle_keyboard,
+            build_oracle_retry_keyboard,
+        )
+        from src.models.session import ContextSnapshot, LlmEntry
+        from src.lib.messages import (
+            ORACLE_NO_TRANSCRIPTS,
+            ORACLE_NO_TRANSCRIPTS_SIMPLIFIED,
+            ORACLE_NOT_FOUND,
+            ORACLE_NOT_FOUND_SIMPLIFIED,
+            ORACLE_TIMEOUT,
+            ORACLE_TIMEOUT_SIMPLIFIED,
+            ORACLE_ERROR,
+            ORACLE_ERROR_SIMPLIFIED,
+            ORACLE_RESPONSE_HEADER,
+            ORACLE_RESPONSE_HEADER_SIMPLIFIED,
+        )
+        from datetime import datetime
+        
+        chat_id = event.chat_id
+        oracle_config = get_oracle_config()
+        session_config = get_session_config()
+        
+        # Get active session
+        active = self.session_manager.get_active_session()
+        
+        # BC-TC-004: Check if session has transcripts
+        if not active or active.audio_count == 0:
+            msg = ORACLE_NO_TRANSCRIPTS_SIMPLIFIED if self._simplified_ui else ORACLE_NO_TRANSCRIPTS
+            await self.bot.send_message(chat_id, msg)
+            return
+        
+        # Check if any transcripts exist
+        has_transcripts = any(
+            e.transcript_filename for e in active.audio_entries
+        )
+        if not has_transcripts:
+            msg = ORACLE_NO_TRANSCRIPTS_SIMPLIFIED if self._simplified_ui else ORACLE_NO_TRANSCRIPTS
+            await self.bot.send_message(chat_id, msg)
+            return
+        
+        # Load oracle manager and get oracle
+        oracle_manager = OracleManager(
+            oracles_dir=oracle_config.oracles_path,
+            placeholder=oracle_config.oracle_placeholder,
+            cache_ttl=oracle_config.oracle_cache_ttl,
+        )
+        
+        # BC-TC-005: Handle stale oracle button (oracle deleted after keyboard shown)
+        oracle = oracle_manager.get_oracle(oracle_id)
+        if not oracle:
+            msg = ORACLE_NOT_FOUND_SIMPLIFIED if self._simplified_ui else ORACLE_NOT_FOUND
+            await self.bot.send_message(chat_id, msg)
+            return
+        
+        # BC-TC-006: Send typing indicator during LLM request
+        # We'll send typing action and handle in background
+        await self.bot.send_chat_action(chat_id, "typing")
+        
+        # Build context from session
+        context_builder = ContextBuilder(session_config.sessions_path)
+        include_history = True
+        if active.ui_preferences:
+            include_history = active.ui_preferences.include_llm_history
+        
+        built_context = context_builder.build(active, include_llm_history=include_history)
+        
+        # Inject context into oracle prompt
+        prompt_injector = PromptInjector()
+        full_prompt = prompt_injector.inject(oracle, built_context.content)
+        
+        # Request LLM feedback
+        oracle_client = OracleClient(timeout_seconds=oracle_config.llm_timeout_seconds)
+        response = await oracle_client.request_feedback(full_prompt)
+        
+        # BC-TC-007: Handle timeout
+        if response.timed_out:
+            msg = ORACLE_TIMEOUT_SIMPLIFIED if self._simplified_ui else ORACLE_TIMEOUT
+            keyboard = build_oracle_retry_keyboard(oracle_id, simplified=self._simplified_ui)
+            await self.bot.send_message(chat_id, msg, reply_markup=keyboard)
+            return
+        
+        # BC-TC-008: Handle LLM error
+        if not response.success:
+            if self._simplified_ui:
+                msg = ORACLE_ERROR_SIMPLIFIED.format(error_summary=response.error_message)
+            else:
+                msg = ORACLE_ERROR.format(error_summary=response.error_message)
+            keyboard = build_oracle_retry_keyboard(oracle_id, simplified=self._simplified_ui)
+            await self.bot.send_message(chat_id, msg, reply_markup=keyboard)
+            return
+        
+        # BC-TC-009: Persist response to session
+        try:
+            await self._persist_oracle_response(
+                active, oracle, response.content, built_context, session_config.sessions_path
+            )
+        except Exception as e:
+            logger.error(f"Failed to persist oracle response: {e}")
+            # Continue showing response even if persistence fails
+        
+        # Format response message
+        if self._simplified_ui:
+            msg = ORACLE_RESPONSE_HEADER_SIMPLIFIED.format(
+                oracle_name=oracle.name,
+                response=response.content,
+            )
+        else:
+            msg = ORACLE_RESPONSE_HEADER.format(
+                oracle_name=oracle.name,
+                response=response.content,
+            )
+        
+        # BC-TC-010: Attach oracle keyboard for follow-up
+        oracles = oracle_manager.list_oracles()
+        keyboard = build_oracle_keyboard(
+            oracles,
+            simplified=self._simplified_ui,
+            include_llm_history=include_history,
+        )
+        
+        await self.bot.send_message(chat_id, msg, reply_markup=keyboard, parse_mode="Markdown")
+        
+        logger.info(f"Oracle feedback sent: {oracle.name} for session {active.id}")
+
+    async def _persist_oracle_response(
+        self,
+        session,
+        oracle,
+        response_content: str,
+        built_context,
+        sessions_path,
+    ) -> None:
+        """Persist oracle response to session.
+        
+        Saves response to llm_responses/ folder and updates session metadata.
+        """
+        from src.models.session import ContextSnapshot, LlmEntry
+        from datetime import datetime
+        from pathlib import Path
+        
+        # Ensure llm_responses directory exists
+        llm_responses_path = session.llm_responses_path(sessions_path)
+        llm_responses_path.mkdir(parents=True, exist_ok=True)
+        
+        # Generate filename: {seq}_{oracle_name}.txt
+        sequence = session.next_llm_sequence
+        safe_name = oracle.name.lower().replace(" ", "_")
+        filename = f"{sequence:03d}_{safe_name}.txt"
+        
+        # Save response to file
+        response_path = llm_responses_path / filename
+        response_path.write_text(response_content, encoding="utf-8")
+        
+        # Create context snapshot
+        snapshot = ContextSnapshot(
+            transcript_count=built_context.transcript_count,
+            llm_response_count=built_context.llm_response_count,
+            include_llm_history=built_context.include_llm_history,
+            total_tokens_estimate=built_context.total_tokens_estimate,
+        )
+        
+        # Create LLM entry
+        llm_entry = LlmEntry(
+            sequence=sequence,
+            created_at=datetime.utcnow(),
+            oracle_name=oracle.name,
+            oracle_id=oracle.id,
+            response_filename=filename,
+            context_snapshot=snapshot,
+        )
+        
+        # Add to session and save
+        session.llm_entries.append(llm_entry)
+        self.session_manager.save_session(session)
+        
+        logger.debug(f"Persisted oracle response: {filename}")
+
+    async def _handle_toggle_callback(self, event: TelegramEvent, toggle_type: str) -> None:
+        """Handle toggle:{type} callbacks.
+        
+        Per BC-TC-011 from 007-contextual-oracle-feedback.
+        
+        Currently supports:
+        - toggle:llm_history - Toggle include_llm_history preference
+        """
+        from src.lib.messages import (
+            ORACLE_TOGGLE_HISTORY_ON,
+            ORACLE_TOGGLE_HISTORY_ON_SIMPLIFIED,
+            ORACLE_TOGGLE_HISTORY_OFF,
+            ORACLE_TOGGLE_HISTORY_OFF_SIMPLIFIED,
+        )
+        from src.lib.config import get_oracle_config
+        from src.services.oracle.manager import OracleManager
+        from src.services.telegram.keyboards import build_oracle_keyboard
+        from src.models.ui_state import UIPreferences
+        
+        chat_id = event.chat_id
+        
+        if toggle_type == "llm_history":
+            active = self.session_manager.get_active_session()
+            if not active:
+                await self.bot.send_message(
+                    chat_id,
+                    "❌ Nenhuma sessão ativa.",
+                )
+                return
+            
+            # Initialize ui_preferences if needed
+            if not active.ui_preferences:
+                active.ui_preferences = UIPreferences()
+            
+            # Toggle the preference
+            active.ui_preferences.include_llm_history = not active.ui_preferences.include_llm_history
+            new_state = active.ui_preferences.include_llm_history
+            
+            # Save session
+            self.session_manager.save_session(active)
+            
+            # Send confirmation
+            if new_state:
+                msg = ORACLE_TOGGLE_HISTORY_ON_SIMPLIFIED if self._simplified_ui else ORACLE_TOGGLE_HISTORY_ON
+            else:
+                msg = ORACLE_TOGGLE_HISTORY_OFF_SIMPLIFIED if self._simplified_ui else ORACLE_TOGGLE_HISTORY_OFF
+            
+            # Rebuild and send oracle keyboard with updated state
+            oracle_config = get_oracle_config()
+            oracle_manager = OracleManager(
+                oracles_dir=oracle_config.oracles_path,
+                placeholder=oracle_config.oracle_placeholder,
+                cache_ttl=oracle_config.oracle_cache_ttl,
+            )
+            oracles = oracle_manager.list_oracles()
+            
+            if oracles:
+                keyboard = build_oracle_keyboard(
+                    oracles,
+                    simplified=self._simplified_ui,
+                    include_llm_history=new_state,
+                )
+                await self.bot.send_message(chat_id, msg, reply_markup=keyboard)
+            else:
+                await self.bot.send_message(chat_id, msg)
+            
+            logger.debug(f"Toggled LLM history to {new_state} for session {active.id}")
+        else:
+            logger.warning(f"Unknown toggle type: {toggle_type}")
 
     # =========================================================================
     # Search Handlers (006-semantic-session-search)
@@ -1611,10 +1893,29 @@ class VoiceOrchestrator:
             )
 
         # Send completion message
-        from src.services.telegram.keyboards import build_transcripts_keyboard
+        from src.services.telegram.keyboards import build_transcripts_with_oracles_keyboard
+        from src.services.oracle.manager import OracleManager
+        from src.lib.config import get_oracle_config
         
         status_emoji = "✅" if error_count == 0 else "⚠️"
-        keyboard = build_transcripts_keyboard(simplified=self._simplified_ui)
+        
+        # Get available oracles for keyboard
+        oracle_config = get_oracle_config()
+        oracle_manager = OracleManager(
+            oracles_dir=oracle_config.oracles_dir,
+            cache_ttl=oracle_config.oracle_cache_ttl,
+        )
+        oracles = oracle_manager.list_oracles()
+        
+        # Get user preference for LLM history
+        session = self.session_manager.storage.load(session.id)
+        include_llm_history = session.ui_preferences.include_llm_history if session else True
+        
+        keyboard = build_transcripts_with_oracles_keyboard(
+            oracles=oracles,
+            simplified=self._simplified_ui,
+            include_llm_history=include_llm_history,
+        )
         
         await self.bot.send_message(
             chat_id,
@@ -1815,18 +2116,56 @@ class VoiceOrchestrator:
 
         full_text = "\n\n".join(transcripts)
 
+        # Get oracle keyboard for transcript display
+        from src.services.telegram.keyboards import build_oracle_keyboard
+        from src.services.oracle.manager import OracleManager
+        from src.lib.config import get_oracle_config
+        
+        oracle_config = get_oracle_config()
+        oracle_manager = OracleManager(
+            oracles_dir=oracle_config.oracles_dir,
+            cache_ttl=oracle_config.oracle_cache_ttl,
+        )
+        oracles = oracle_manager.list_oracles()
+        
+        # Build keyboard if oracles exist
+        keyboard = None
+        if oracles:
+            include_llm_history = target_session.ui_preferences.include_llm_history if target_session else True
+            keyboard = build_oracle_keyboard(
+                oracles=oracles,
+                simplified=self._simplified_ui,
+                include_llm_history=include_llm_history,
+            )
+
         # Telegram message limit is 4096 characters
         if len(full_text) <= 4000:
             await self.bot.send_message(
                 event.chat_id,
                 f"📝 *Transcripts for session `{target_session.id}`*\n\n{escape_markdown(full_text)}",
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
         else:
             # Split into chunks or send as file
             # First, try to send as file
             consolidated_path = transcripts_dir / "consolidated.txt"
             consolidated_path.write_text(full_text, encoding="utf-8")
+
+            await self.bot.send_file(
+                event.chat_id,
+                consolidated_path,
+                caption=f"📝 Transcripts for session {target_session.id}",
+            )
+            
+            # Send oracle keyboard as a separate message if transcript was too long
+            if keyboard:
+                await self.bot.send_message(
+                    event.chat_id,
+                    "🔮 *Ask an Oracle for feedback:*",
+                    parse_mode="Markdown",
+                    reply_markup=keyboard,
+                )
 
             await self.bot.send_file(
                 event.chat_id,

@@ -27,10 +27,10 @@
 
 **Purpose**: Project initialization and environment configuration
 
-- [ ] T001 Create `prompts/oracles/` directory structure
-- [ ] T002 [P] Add OracleConfig to `src/lib/config.py` with ORACLES_DIR, ORACLE_PLACEHOLDER, ORACLE_CACHE_TTL, LLM_TIMEOUT_SECONDS
-- [ ] T003 [P] Add sample oracle files: `prompts/oracles/cetico.md`, `prompts/oracles/visionario.md`, `prompts/oracles/otimista.md`
-- [ ] T004 Update `.env.example` with new oracle configuration variables
+- [X] T001 Create `prompts/oracles/` directory structure
+- [X] T002 [P] Add OracleConfig to `src/lib/config.py` with ORACLES_DIR, ORACLE_PLACEHOLDER, ORACLE_CACHE_TTL, LLM_TIMEOUT_SECONDS
+- [X] T003 [P] Add sample oracle files: `prompts/oracles/cetico.md`, `prompts/oracles/visionario.md`, `prompts/oracles/otimista.md`
+- [X] T004 Update `.env.example` with new oracle configuration variables
 
 **Checkpoint**: Environment configured, sample oracles available
 
@@ -42,13 +42,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create Oracle dataclass in `src/models/oracle.py` per data-model.md
-- [ ] T006 [P] Create LlmEntry dataclass in `src/models/session.py` (extend existing)
-- [ ] T007 [P] Create ContextSnapshot dataclass in `src/models/session.py`
-- [ ] T008 Extend UIPreferences with `include_llm_history: bool` in `src/models/ui_state.py`
-- [ ] T009 Extend Session with `llm_entries: list[LlmEntry]` in `src/models/session.py`
-- [ ] T010 Add `llm_responses/` directory creation to session storage in `src/services/session/storage.py`
-- [ ] T011 Add serialization/deserialization for LlmEntry in Session.to_dict() and from_dict()
+- [X] T005 Create Oracle dataclass in `src/models/oracle.py` per data-model.md
+- [X] T006 [P] Create LlmEntry dataclass in `src/models/session.py` (extend existing)
+- [X] T007 [P] Create ContextSnapshot dataclass in `src/models/session.py`
+- [X] T008 Extend UIPreferences with `include_llm_history: bool` in `src/models/ui_state.py`
+- [X] T009 Extend Session with `llm_entries: list[LlmEntry]` in `src/models/session.py`
+- [X] T010 Add `llm_responses/` directory creation to session storage in `src/services/session/storage.py`
+- [X] T011 Add serialization/deserialization for LlmEntry in Session.to_dict() and from_dict()
 
 **Checkpoint**: Foundation ready - all models exist, session can store LLM entries
 
@@ -62,19 +62,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Contract test for ContextBuilder (BC-CB-001 to BC-CB-005) in `tests/contract/test_context_builder_contract.py`
-- [ ] T013 [P] [US1] Unit test for prompt injection in `tests/unit/test_prompt_injector.py`
+- [X] T012 [P] [US1] Contract test for ContextBuilder (BC-CB-001 to BC-CB-005) in `tests/contract/test_context_builder_contract.py`
+- [X] T013 [P] [US1] Unit test for prompt injection in `tests/unit/test_prompt_injector.py`
 - [ ] T014 [US1] Integration test for oracle feedback flow in `tests/integration/test_oracle_feedback_flow.py`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Create ContextBuilder service in `src/services/llm/context_builder.py` (BC-CB-001 to BC-CB-009)
-- [ ] T016 [P] [US1] Create PromptInjector in `src/services/llm/prompt_injector.py` — FR-005: inject context into oracle placeholder (default `{{CONTEXT}}`); fallback: append context at end if placeholder missing
-- [ ] T017 [US1] Implement LLM request with timeout in `src/services/llm/oracle_client.py`
-- [ ] T018 [US1] Implement response persistence to `llm_responses/` in `src/services/session/storage.py`
-- [ ] T019 [US1] Implement oracle callback handler `handle_oracle_callback` in `src/cli/daemon.py` (BC-TC-003, BC-TC-006)
-- [ ] T020 [US1] Add typing indicator during LLM request (BC-TC-006)
-- [ ] T021 [US1] Wire oracle callback to daemon event loop
+- [X] T015 [P] [US1] Create ContextBuilder service in `src/services/llm/context_builder.py` (BC-CB-001 to BC-CB-009)
+- [X] T016 [P] [US1] Create PromptInjector in `src/services/llm/prompt_injector.py` — FR-005: inject context into oracle placeholder (default `{{CONTEXT}}`); fallback: append context at end if placeholder missing
+- [X] T017 [US1] Implement LLM request with timeout in `src/services/llm/oracle_client.py`
+- [X] T018 [US1] Implement response persistence to `llm_responses/` in `src/services/session/storage.py`
+- [X] T019 [US1] Implement oracle callback handler `handle_oracle_callback` in `src/cli/daemon.py` (BC-TC-003, BC-TC-006)
+- [X] T020 [US1] Add typing indicator during LLM request (BC-TC-006)
+- [X] T021 [US1] Wire oracle callback to daemon event loop
 
 **Checkpoint**: US1 complete - user can request and receive oracle feedback with context
 
@@ -88,17 +88,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T022 [P] [US2] Contract test for OracleManager (BC-OM-001 to BC-OM-009) in `tests/contract/test_oracle_manager_contract.py`
-- [ ] T023 [P] [US2] Unit test for oracle loader (title extraction) in `tests/unit/test_oracle_loader.py`
+- [X] T022 [P] [US2] Contract test for OracleManager (BC-OM-001 to BC-OM-009) in `tests/contract/test_oracle_manager_contract.py`
+- [X] T023 [P] [US2] Unit test for oracle loader (title extraction) in `tests/unit/test_oracle_loader.py`
 
 ### Implementation for User Story 2
 
-- [ ] T024 [P] [US2] Create OracleLoader in `src/services/oracle/loader.py` (markdown parsing, title extraction, ID generation)
-- [ ] T025 [US2] Create OracleManager in `src/services/oracle/manager.py` (caching, list_oracles, get_oracle)
-- [ ] T026 [US2] Implement `build_oracle_keyboard()` in `src/services/telegram/keyboards.py` (BC-TC-001, BC-TC-002)
-- [ ] T027 [US2] Add oracle keyboard to transcription message in `src/cli/daemon.py`
-- [ ] T028 [US2] Handle empty oracles directory (BC-OM-005, BC-OM-006, BC-TC-002)
-- [ ] T029 [US2] Handle invalid/corrupted oracle files with warning log (BC-OM-004)
+- [X] T024 [P] [US2] Create OracleLoader in `src/services/oracle/loader.py` (markdown parsing, title extraction, ID generation)
+- [X] T025 [US2] Create OracleManager in `src/services/oracle/manager.py` (caching, list_oracles, get_oracle)
+- [X] T026 [US2] Implement `build_oracle_keyboard()` in `src/services/telegram/keyboards.py` (BC-TC-001, BC-TC-002)
+- [X] T027 [US2] Add oracle keyboard to transcription message in `src/cli/daemon.py`
+- [X] T028 [US2] Handle empty oracles directory (BC-OM-005, BC-OM-006, BC-TC-002)
+- [X] T029 [US2] Handle invalid/corrupted oracle files with warning log (BC-OM-004)
 
 **Checkpoint**: US2 complete - dynamic oracle buttons work, new files auto-detected
 
@@ -112,15 +112,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T030 [P] [US3] Contract test for ContextBuilder with LLM history (BC-CB-001, BC-CB-003, BC-CB-004) in `tests/contract/test_context_builder_contract.py`
+- [X] T030 [P] [US3] Contract test for ContextBuilder with LLM history (BC-CB-001, BC-CB-003, BC-CB-004) in `tests/contract/test_context_builder_contract.py`
 - [ ] T031 [US3] Integration test for spiral feedback in `tests/integration/test_oracle_feedback_flow.py`
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Extend ContextBuilder.build() to include llm_entries when `include_llm_history=True` (BC-CB-001)
-- [ ] T033 [US3] Add oracle name delimiter `[ORÁCULO: {name} - {timestamp}]` to context format (BC-CB-008)
-- [ ] T034 [US3] Create ContextSnapshot on each oracle request for auditability
-- [ ] T035 [US3] Handle missing LLM response files gracefully (BC-CB-007)
+- [X] T032 [US3] Extend ContextBuilder.build() to include llm_entries when `include_llm_history=True` (BC-CB-001)
+- [X] T033 [US3] Add oracle name delimiter `[ORÁCULO: {name} - {timestamp}]` to context format (BC-CB-008)
+- [X] T034 [US3] Create ContextSnapshot on each oracle request for auditability
+- [X] T035 [US3] Handle missing LLM response files gracefully (BC-CB-007)
 
 **Checkpoint**: US3 complete - LLM responses feed into subsequent contexts
 
@@ -134,16 +134,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T036 [P] [US4] Contract test for toggle behavior in `tests/contract/test_context_builder_contract.py` (BC-CB-002, BC-CB-003, BC-CB-004)
-- [ ] T037 [US4] Unit test for preference persistence in `tests/unit/test_ui_preferences.py`
+- [X] T036 [P] [US4] Contract test for toggle behavior in `tests/contract/test_context_builder_contract.py` (BC-CB-002, BC-CB-003, BC-CB-004)
+- [X] T037 [US4] Unit test for preference persistence in `tests/unit/test_ui_preferences.py`
 
 ### Implementation for User Story 4
 
-- [ ] T038 [US4] Implement toggle callback handler `handle_toggle_llm_history` in `src/cli/daemon.py` (BC-TC-011)
-- [ ] T039 [US4] Add toggle button to oracle keyboard (BC-TC-012)
-- [ ] T040 [US4] Persist preference to session metadata
-- [ ] T041 [US4] Update button label based on current state ("🔗 Histórico: ON/OFF") (BC-TC-012)
-- [ ] T042 [US4] Wire ContextBuilder to respect session preference (BC-CB-003)
+- [X] T038 [US4] Implement toggle callback handler `handle_toggle_llm_history` in `src/cli/daemon.py` (BC-TC-011)
+- [X] T039 [US4] Add toggle button to oracle keyboard (BC-TC-012)
+- [X] T040 [US4] Persist preference to session metadata
+- [X] T041 [US4] Update button label based on current state ("🔗 Histórico: ON/OFF") (BC-TC-012)
+- [X] T042 [US4] Wire ContextBuilder to respect session preference (BC-CB-003)
 
 **Checkpoint**: US4 complete - user controls LLM history inclusion
 
@@ -157,17 +157,17 @@
 
 ### Tests for User Story 5
 
-- [ ] T043 [P] [US5] Unit test for error handling in oracle client `tests/unit/test_oracle_client.py`
+- [X] T043 [P] [US5] Unit test for error handling in oracle client `tests/unit/test_oracle_client.py`
 - [ ] T044 [US5] Integration test for resilience scenarios `tests/integration/test_oracle_resilience.py`
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Implement LLM timeout handling with retry button (BC-TC-007)
-- [ ] T046 [US5] Implement LLM error handling with error summary (BC-TC-008)
-- [ ] T047 [US5] Handle stale oracle button clicks (BC-TC-005)
-- [ ] T048 [US5] Handle session with no transcripts on oracle click (BC-TC-004)
+- [X] T045 [US5] Implement LLM timeout handling with retry button (BC-TC-007)
+- [X] T046 [US5] Implement LLM error handling with error summary (BC-TC-008)
+- [X] T047 [US5] Handle stale oracle button clicks (BC-TC-005)
+- [X] T048 [US5] Handle session with no transcripts on oracle click (BC-TC-004)
 - [ ] T049 [US5] Implement volatile memory mode alert (FR-013, BC-TC-013)
-- [ ] T050 [US5] Add structured logging for all error conditions
+- [X] T050 [US5] Add structured logging for all error conditions
 
 **Checkpoint**: US5 complete - errors handled gracefully, system resilient
 
@@ -177,11 +177,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation
 
-- [ ] T051 Create `docs/tutorial_adding_oracles.md` per Constitution Tutorial requirement
-- [ ] T052 Create `docs/tutorial_context_management.md` per Constitution Tutorial requirement
-- [ ] T053 Update `README.md` with oracle configuration section
-- [ ] T054 Run full test suite and verify all BC-* contracts pass
-- [ ] T055 Performance validation: verify <200ms oracle button rendering (SC-001)
+- [X] T051 Create `docs/tutorial_adding_oracles.md` per Constitution Tutorial requirement
+- [X] T052 Create `docs/tutorial_context_management.md` per Constitution Tutorial requirement
+- [X] T053 Update `README.md` with oracle configuration section
+- [X] T054 Run full test suite and verify all BC-* contracts pass (81 tests for 007 pass)
+- [X] T055 Performance validation: verify <200ms oracle button rendering (SC-001) - 5 performance tests pass
 
 **Checkpoint**: Feature complete, documented, tested
 

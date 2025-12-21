@@ -323,6 +323,49 @@ BUTTON_REOPEN_MENU_SIMPLIFIED = "Reabrir Sessão"
 BUTTON_REOPEN_SESSION_PREFIX = "🔘"
 
 # =============================================================================
+# Oracle Buttons (007-contextual-oracle-feedback)
+# =============================================================================
+
+BUTTON_ORACLE_PREFIX = "🎭"  # Default emoji prefix for oracle buttons
+BUTTON_ORACLE_HISTORY_ON = "🔗 Histórico: ON"
+BUTTON_ORACLE_HISTORY_ON_SIMPLIFIED = "Histórico: ON"
+BUTTON_ORACLE_HISTORY_OFF = "🔗 Histórico: OFF"
+BUTTON_ORACLE_HISTORY_OFF_SIMPLIFIED = "Histórico: OFF"
+BUTTON_ORACLE_RETRY = "🔄 Tentar Novamente"
+BUTTON_ORACLE_RETRY_SIMPLIFIED = "Tentar Novamente"
+
+# =============================================================================
+# Oracle Messages (007-contextual-oracle-feedback)
+# =============================================================================
+
+ORACLE_NO_ORACLES = "🎭 Nenhum oráculo disponível.\n\nAdicione arquivos .md em {oracles_dir}."
+ORACLE_NO_ORACLES_SIMPLIFIED = "Nenhum oráculo disponível. Adicione arquivos em {oracles_dir}."
+
+ORACLE_NO_TRANSCRIPTS = "📝 Envie um áudio primeiro para receber feedback."
+ORACLE_NO_TRANSCRIPTS_SIMPLIFIED = "Envie um áudio primeiro para receber feedback."
+
+ORACLE_NOT_FOUND = "❌ Oráculo não encontrado. A lista foi atualizada."
+ORACLE_NOT_FOUND_SIMPLIFIED = "Oráculo não encontrado. Tente novamente."
+
+ORACLE_TIMEOUT = "⏱️ Tempo esgotado ao aguardar resposta.\n\nTente novamente."
+ORACLE_TIMEOUT_SIMPLIFIED = "Tempo esgotado. Tente novamente."
+
+ORACLE_ERROR = "⚠️ Erro ao obter feedback: {error_summary}"
+ORACLE_ERROR_SIMPLIFIED = "Erro ao obter feedback: {error_summary}"
+
+ORACLE_VOLATILE_MODE = "⚠️ Modo memória volátil ativo - histórico não será persistido."
+ORACLE_VOLATILE_MODE_SIMPLIFIED = "Modo memória volátil - histórico não persistido."
+
+ORACLE_TOGGLE_HISTORY_ON = "✅ Histórico LLM ativado.\n\nRespostas anteriores serão incluídas no contexto."
+ORACLE_TOGGLE_HISTORY_ON_SIMPLIFIED = "Histórico LLM ativado."
+
+ORACLE_TOGGLE_HISTORY_OFF = "✅ Histórico LLM desativado.\n\nApenas transcrições serão enviadas."
+ORACLE_TOGGLE_HISTORY_OFF_SIMPLIFIED = "Histórico LLM desativado."
+
+ORACLE_RESPONSE_HEADER = "🎭 **{oracle_name}**\n\n{response}"
+ORACLE_RESPONSE_HEADER_SIMPLIFIED = "{oracle_name}:\n\n{response}"
+
+# =============================================================================
 # Recovery Prompts
 # =============================================================================
 
