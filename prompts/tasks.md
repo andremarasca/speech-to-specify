@@ -26,24 +26,28 @@ The output must be concise, explicit, and directly actionable by an automated ta
 Use each document strictly for its role:
 
 ### 1. PLANNING (Defines technical stack, architectural limits, mandatory tooling, and structural constraints)
+
 [[[PLANNING_START]]]
 {{ planning_content }}
-[[[PLANNING_START]]]
+[[[PLANNING_END]]]
 
 ### 2. SPECIFICATION (Defines user stories, priorities, MVP scope, and delivery sequencing)
+
 [[[SPECIFICATION_START]]]
 {{ specification_content }}
 [[[SPECIFICATION_END]]]
 
 ### 3. CONSTITUTION (Defines non-negotiable execution rules, quality bars, and commit discipline)
+
 [[[CONSTITUTION_START]]]
 {{ constitution_content }}
 [[[CONSTITUTION_END]]]
 
-### 4. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
-[[[BRAINSTORM_START]]]
-{{ input_content }}
-[[[BRAINSTORM_END]]]
+### 4. SEMANTIC NORMALIZATION (Normalized narrative of the original brainstorm, free of noise and contradictions)
+
+[[[SEMANTIC_NORMALIZATION_START]]]
+{{ semantic_normalization }}
+[[[SEMANTIC_NORMALIZATION_END]]]
 
 Do NOT summarize.
 Do NOT paraphrase.

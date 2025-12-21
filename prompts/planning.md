@@ -5,19 +5,22 @@ You are a Senior Software Architect and Systems Design Specialist. Your task is 
 Below are the three source documents. They are delimited by specific tags. Process them thoroughly before generating the output.
 
 ### 1. SPECIFICATION (Defines user stories, priorities, MVP scope, and delivery sequencing)
+
 [[[SPECIFICATION_START]]]
 {{ specification_content }}
 [[[SPECIFICATION_END]]]
 
 ### 2. CONSTITUTION (Defines non-negotiable execution rules, quality bars, and commit discipline)
+
 [[[CONSTITUTION_START]]]
 {{ constitution_content }}
 [[[CONSTITUTION_END]]]
 
-### 3. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
-[[[BRAINSTORM_START]]]
-{{ input_content }}
-[[[BRAINSTORM_END]]]
+### 3. SEMANTIC NORMALIZATION (Normalized narrative of the original brainstorm, free of noise and contradictions)
+
+[[[SEMANTIC_NORMALIZATION_START]]]
+{{ semantic_normalization }}
+[[[SEMANTIC_NORMALIZATION_END]]]
 
 # Execution Logic & Constraints
 Your goal is to filter the "Brainstorm" through the "Constitution" and the "Specification". Follow these rules strictly:

@@ -41,7 +41,8 @@ Você deve incluir na sua resposta, e garantir o cumprimento destas regras em to
 
 ## Dados de Entrada
 
-### 1. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
-[[[BRAINSTORM_START]]]
-{{ input_content }}
-[[[BRAINSTORM_END]]]
+### 1. SEMANTIC NORMALIZATION (Normalized narrative of the original brainstorm, free of noise and contradictions)
+
+[[[SEMANTIC_NORMALIZATION_START]]]
+{{ semantic_normalization }}
+[[[SEMANTIC_NORMALIZATION_END]]]

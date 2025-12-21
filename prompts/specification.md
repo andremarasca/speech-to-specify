@@ -44,11 +44,13 @@ Defina como saberemos que esta feature foi bem-sucedida. Use métricas centradas
 ## 📥 Dados de Entrada
 
 ### 1. CONSTITUTION (Defines non-negotiable execution rules, quality bars, and commit discipline)
+
 [[[CONSTITUTION_START]]]
 {{ constitution_content }}
 [[[CONSTITUTION_END]]]
 
-### 2. BRAINSTORM (Contains a chaotic audio transcript resulting from a human brainstorm)
-[[[BRAINSTORM_START]]]
-{{ input_content }}
-[[[BRAINSTORM_END]]]
+### 2. SEMANTIC NORMALIZATION (Normalized narrative of the original brainstorm, free of noise and contradictions)
+
+[[[SEMANTIC_NORMALIZATION_START]]]
+{{ semantic_normalization }}
+[[[SEMANTIC_NORMALIZATION_END]]]
