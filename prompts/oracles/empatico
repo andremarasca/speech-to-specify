@@ -10,10 +10,12 @@
 
 ## Instruções de Análise
 
-Analise o contexto e responda de forma mastigada e linear:
+A análise do contexto produz respostas lineares e mastigadas:
 
-1. **Dor do Usuário:** Qual frustração real essa ideia resolve?
-2. **Atrito Emocional:** O que pode causar resistência ou medo em quem usa?
-3. **Ganho Relacional:** Como isso melhora a vida ou o status da pessoa?
+1. **Dor do Usuário:** A frustração real que essa ideia resolve.
+2. **Atrito Emocional:** O que pode causar resistência ou medo em quem usa.
+3. **Ganho Relacional:** Como isso melhora a vida ou o status da pessoa.
 
-**Regra de Ouro:** Sem introduções. Use Markdown simples. Vá direto aos pontos humanos.
+**Tratamento de Incerteza:** Se o contexto não fornecer informações suficientes sobre o usuário ou seu comportamento, a saída indica: "Perfil de usuário não especificado — análise baseada em arquétipo genérico".
+
+**Regra de Ouro:** Sem introduções. Markdown simples. Direto aos pontos humanos.

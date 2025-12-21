@@ -10,24 +10,25 @@ Gerar um manifesto curto, denso e imperativo. O foco deve ser no **"O Quê"** e 
 
 ## Cláusulas Pétreas (Regras Fixas e Inegociáveis)
 
-Você deve incluir na sua resposta, e garantir o cumprimento destas regras em todos os projetos:
+A resposta inclui e garante o cumprimento destas regras em todos os projetos:
 
 1. **Excelência Estrutural:** Aplicação rigorosa de SOLID e Object Calisthenics.
 2. **Integridade de Testes:** Sucesso é binário (se um teste falha, a tarefa falha). Os testes devem validar o comportamento e a lógica de negócio, não parâmetros hardcoded. Refatorações não devem quebrar testes se a lógica permanecer a mesma.
-3. **Configuração Externa e Zero Hardcoding:** É terminantemente proibido o uso de valores literais ou parâmetros hardcoded no código (URLs, credenciais, portas, timeouts, limites). Toda variável de ambiente ou ajuste deve residir em arquivos de configuração (.env). O Agente Executor deve extrair todo parâmetro configurável para o ambiente; violações desta regra invalidam a entrega.
-4. **Tutorial de Extensibilidade Obrigatório:** Toda funcionalidade nova ou modificada que introduza comportamento configurável, heurístico ou passível de personalização futura DEVE ser entregue juntamente com um tutorial técnico explícito que documente sua finalidade, localização da lógica, pontos formais de extensão e procedimento de alteração; a ausência desse tutorial caracteriza a funcionalidade como arquiteturalmente incompleta, configurando dívida técnica ativa e violação direta das cláusulas pétreas.
+3. **Configuração Externa e Zero Hardcoding:** É terminantemente proibido o uso de valores literais ou parâmetros hardcoded no código (URLs, credenciais, portas, timeouts, limites). Toda variável de ambiente ou ajuste reside em arquivos de configuração (.env). O Agente Executor extrai todo parâmetro configurável para o ambiente; violações desta regra invalidam a entrega.
+4. **Tutorial de Extensibilidade Obrigatório:** Toda funcionalidade nova ou modificada que introduza comportamento configurável, heurístico ou passível de personalização futura é entregue juntamente com um tutorial técnico explícito que documenta sua finalidade, localização da lógica, pontos formais de extensão e procedimento de alteração; a ausência desse tutorial caracteriza a funcionalidade como arquiteturalmente incompleta, configurando dívida técnica ativa e violação direta das cláusulas pétreas.
 
 ## Lógica de Extração e Conflito
 
-1. **Extração de Novos Valores:** Identifique no brainstorm desejos de performance, segurança, simplicidade ou ética. Converta frases como "não quero bugs" em "Tolerância Zero a Falhas".
-2. **Resolução de Conflitos:** Se o brainstorm sugerir algo que viole as Cláusulas Pétreas (ex: "pode pular os testes"), as Cláusulas Pétreas prevalecem. Você deve emitir um **"Alerta de Violação Constitucional"** antes de apresentar a regra mantida, seguido de uma breve justificativa técnica/visionária.
-3. **Abstração Estratégica:** Transforme ferramentas citadas em intenções. "Salvar no Postgres" vira "Persistência Relacional".
+1. **Extração de Novos Valores:** O sistema identifica no brainstorm desejos de performance, segurança, simplicidade ou ética. Frases como "não quero bugs" são convertidas em "Tolerância Zero a Falhas".
+2. **Resolução de Conflitos:** Se o brainstorm sugerir algo que viole as Cláusulas Pétreas (ex: "pode pular os testes"), as Cláusulas Pétreas prevalecem. A saída emite um **"Alerta de Violação Constitucional"** antes de apresentar a regra mantida, seguido de uma breve justificativa técnica/visionária.
+3. **Abstração Estratégica:** Ferramentas citadas são transformadas em intenções. "Salvar no Postgres" vira "Persistência Relacional".
+4. **Hierarquia de Precedência:** Em caso de conflito entre fontes, a ordem de soberania é: **Cláusulas Pétreas > Valores Extraídos > Brainstorm**.
 
 ## Diretrizes de Escrita e Acessibilidade ♿
 
 * **Navegação Clara:** Use títulos Markdown (`##` ou `###`) apenas para seções principais. Evite `####` ou sequências longas de símbolos (`---`) para não gerar ruído em leitores de tela.
-* **Tom:** Informal, direto, sem gírias, mas com autoridade técnica. Use sentenças declarativas (O sistema DEVE). Evite adjetivos vazios (ex: "incrível", "amigável") em favor de descritores técnicos (ex: "latência reduzida", "UI intuitiva baseada em heurísticas").
-* **Concisão:** Cada palavra deve carregar peso. Corte o que não adiciona valor.
+* **Tom:** Informal, direto, sem gírias, mas com autoridade técnica. Sentenças declarativas ("O sistema identifica...", "A saída contém..."). Adjetivos vazios (ex: "incrível", "amigável") são substituídos por descritores técnicos (ex: "latência < 200ms", "UI baseada em heurísticas de Nielsen").
+* **Concisão:** Cada palavra carrega peso. O que não adiciona valor é cortado.
 
 ## Formato de Saída
 

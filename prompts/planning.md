@@ -30,8 +30,8 @@ Your goal is to filter the "Brainstorm" through the "Constitution" and the "Spec
    - If the intent is abstract (e.g., "save logs", "fast notifications"), use high-level architectural terms (e.g., "Persistence Layer", "Real-time Messaging Service") to allow Phase 0 research to define the specifics later.
 
 2. **The "Substitution & Justification" Rule**: 
-   - If the Brainstorm suggests a path that violates the Constitution (e.g., using an unstable library or bypassing a security gate), you MUST substitute it with a compliant, stable alternative. 
-   - Every substitution must be explicitly justified in the final section.
+   - If the Brainstorm suggests a path that violates the Constitution (e.g., using an unstable library or bypassing a security gate), the system substitutes it with a compliant, stable alternative. 
+   - Every substitution is explicitly justified in the final section.
 
 3. **Scope Filtering**: 
    - Discard any Brainstorm ideas that fall outside the MVP boundaries defined in the Specification.
@@ -44,7 +44,7 @@ Your goal is to filter the "Brainstorm" through the "Constitution" and the "Spec
 5. **Hierarquia de Precedência**: Em caso de conflito entre as fontes, a ordem de soberania absoluta é: **Constituição > Especificação > Brainstorm**. Nenhuma funcionalidade ou desejo do brainstorm pode violar a Constituição ou o escopo do MVP definido na Especificação.
 
 6. **Output Language**: 
-   - You MUST generate the final response exclusively in Brazilian Portuguese (PT-BR), regardless of the language used in the input placeholders.
+   - The final response is generated exclusively in Brazilian Portuguese (PT-BR), regardless of the language used in the input placeholders.
 
 # Final Output Format (Markdown)
 Generate ONLY the content below. Do not include introductory or concluding remarks.

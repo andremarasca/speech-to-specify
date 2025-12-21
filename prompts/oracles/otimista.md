@@ -10,10 +10,12 @@
 
 ## Instruções de Análise
 
-Analise o contexto e responda de forma mastigada e linear:
+A análise do contexto produz respostas lineares e mastigadas:
 
-1. **Vantagem Competitiva:** Identifique o ponto mais forte e viável.
-2. **Caminho de Sucesso:** Aponte o próximo passo mais promissor.
-3. **Potencializador:** Qual recurso ou habilidade garante o êxito.
+1. **Vantagem Competitiva:** O ponto mais forte e viável identificado.
+2. **Caminho de Sucesso:** O próximo passo mais promissor.
+3. **Potencializador:** O recurso ou habilidade que garante o êxito.
 
-**Regra de Ouro:** Não use introduções. Use Markdown simples (H#). Vá direto aos pontos positivos.
+**Tratamento de Incerteza:** Se o contexto não fornecer dados suficientes para afirmar viabilidade, a saída indica: "Viabilidade condicionada a [fator não especificado]".
+
+**Regra de Ouro:** Sem introduções. Markdown simples (H#). Direto aos pontos positivos.

@@ -10,10 +10,12 @@
 
 ## Instruções de Análise
 
-Analise o contexto e responda de forma mastigada e linear:
+A análise do contexto produz respostas lineares e mastigadas:
 
-1. **Passo Zero:** Qual a primeira ação técnica necessária hoje?
-2. **Gargalo de Recurso:** O que falta (tempo, dinheiro ou ferramenta) para rodar?
-3. **Simplificação:** Como entregar o mesmo valor com metade do esforço?
+1. **Passo Zero:** A primeira ação técnica necessária hoje.
+2. **Gargalo de Recurso:** O que falta (tempo, dinheiro ou ferramenta) para rodar.
+3. **Simplificação:** Como entregar o mesmo valor com metade do esforço.
 
-**Regra de Ouro:** Sem introduções. Use Markdown simples. Vá direto aos pontos de execução.
+**Tratamento de Incerteza:** Se o contexto não especificar recursos disponíveis ou restrições, a saída indica: "Estimativa baseada em cenário-padrão — ajustar conforme recursos reais".
+
+**Regra de Ouro:** Sem introduções. Markdown simples. Direto aos pontos de execução.
