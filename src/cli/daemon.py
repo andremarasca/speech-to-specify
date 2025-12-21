@@ -16,7 +16,7 @@ import logging
 import re
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn, Optional
 
@@ -1040,7 +1040,16 @@ class VoiceOrchestrator:
             include_llm_history=include_history,
         )
         
-        await self.bot.send_message(chat_id, msg, reply_markup=keyboard, parse_mode="Markdown")
+        # Try sending with Markdown first, fallback to plain text if parsing fails
+        # LLM responses may contain characters that break Telegram Markdown parser
+        try:
+            await self.bot.send_message(chat_id, msg, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception as e:
+            if "parse entities" in str(e).lower() or "can't find end" in str(e).lower():
+                logger.warning(f"Markdown parsing failed, sending as plain text: {e}")
+                await self.bot.send_message(chat_id, msg, reply_markup=keyboard)
+            else:
+                raise
         
         # 008-async-audio-response: Trigger async TTS synthesis
         # Text is already delivered; audio follows asynchronously per Constitution
@@ -1096,7 +1105,7 @@ class VoiceOrchestrator:
         # Create LLM entry
         llm_entry = LlmEntry(
             sequence=sequence,
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
             oracle_name=oracle.name,
             oracle_id=oracle.id,
             response_filename=filename,

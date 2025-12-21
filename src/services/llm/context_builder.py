@@ -8,11 +8,25 @@ LLM responses for use in oracle prompts.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from src.models.session import Session, AudioEntry, LlmEntry
+
+
+def _normalize_datetime(dt: datetime) -> datetime:
+    """Normalize datetime to UTC for consistent comparison.
+    
+    Handles both timezone-aware and naive datetimes.
+    Naive datetimes are assumed to be UTC.
+    """
+    if dt.tzinfo is None:
+        # Naive datetime - assume UTC
+        return dt.replace(tzinfo=timezone.utc)
+    else:
+        # Convert to UTC for consistent comparison
+        return dt.astimezone(timezone.utc)
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +138,8 @@ class ContextBuilder:
                 llm_response_count += 1
         
         # Sort by timestamp (chronological order)
-        timeline.sort(key=lambda x: x[0])
+        # Normalize datetimes to handle mixed timezone-aware and naive datetimes
+        timeline.sort(key=lambda x: _normalize_datetime(x[0]))
         
         # Build final content string
         # Per BC-CB-005: Handle empty session
