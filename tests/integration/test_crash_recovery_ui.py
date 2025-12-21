@@ -351,6 +351,9 @@ class TestCheckpointSaveOnAudioReceipt:
             received_at=datetime.now(),
         )
         mock_session_manager.handle_audio_receipt.return_value = (session, audio_entry)
+        # Return session from update methods (these are now captured by the flow)
+        mock_session_manager.update_transcription_status.return_value = session
+        mock_session_manager.update_session_name.return_value = session
         
         # Mock transcription service
         mock_transcription = MagicMock()

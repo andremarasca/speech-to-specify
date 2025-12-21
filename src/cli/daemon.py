@@ -3141,8 +3141,8 @@ class VoiceOrchestrator:
                     # Write transcript to file
                     transcript_path.write_text(result.text, encoding="utf-8")
                     
-                    # Update transcription status
-                    self.session_manager.update_transcription_status(
+                    # Update transcription status and get updated session
+                    session = self.session_manager.update_transcription_status(
                         session.id,
                         audio_entry.sequence,
                         TranscriptionStatus.SUCCESS,
@@ -3158,7 +3158,7 @@ class VoiceOrchestrator:
                         transcript_name = name_generator.generate_from_transcript(result.text)
                         
                         if transcript_name:
-                            self.session_manager.update_session_name(
+                            session = self.session_manager.update_session_name(
                                 session.id,
                                 transcript_name,
                                 NameSource.TRANSCRIPTION,
@@ -3168,7 +3168,7 @@ class VoiceOrchestrator:
                     logger.info(f"Transcribed audio #{audio_entry.sequence}: {len(result.text)} chars")
                 else:
                     # Transcription failed
-                    self.session_manager.update_transcription_status(
+                    session = self.session_manager.update_transcription_status(
                         session.id,
                         audio_entry.sequence,
                         TranscriptionStatus.FAILED,
@@ -3178,7 +3178,7 @@ class VoiceOrchestrator:
                     
             except Exception as e:
                 # Unexpected transcription error
-                self.session_manager.update_transcription_status(
+                session = self.session_manager.update_transcription_status(
                     session.id,
                     audio_entry.sequence,
                     TranscriptionStatus.FAILED,
