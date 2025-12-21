@@ -30,11 +30,13 @@ O problema central é a natureza linear e volátil dos brainstorms por áudio. O
 
 ### User Story 1 - Solicitar Feedback de Oráculo (Priority: P1)
 
-Como usuário do sistema de brainstorm, após enviar um ou mais áudios e ver suas transcrições, quero selecionar uma personalidade de oráculo (ex: "Cético", "Visionário") via botão clicável para receber feedback contextualizado baseado em todo o conteúdo da minha sessão.
+Como usuário do sistema de brainstorm, após enviar um áudio e ver sua transcrição **imediata**, quero selecionar uma personalidade de oráculo (ex: "Cético", "Visionário") via botão clicável para receber feedback contextualizado baseado em todo o conteúdo da minha sessão.
 
 **Why this priority**: Esta é a funcionalidade central que entrega o valor primário do produto — transformar monólogo em diálogo produtivo. Sem ela, o sistema é apenas um transcritor.
 
-**Independent Test**: Pode ser testado enviando um áudio de teste, aguardando transcrição, clicando no botão de um oráculo e verificando que a resposta considera o conteúdo transcrito.
+**Independent Test**: Pode ser testado enviando um áudio de teste, verificando que a transcrição aparece imediatamente com botões de oráculo, clicando em um oráculo e verificando que a resposta considera o conteúdo transcrito.
+
+**Critical Behavior**: A transcrição é realizada **imediatamente** após cada áudio ser recebido (não aguarda `/done`). Os botões de oráculo são exibidos junto com cada transcrição.
 
 **Acceptance Scenarios**:
 
@@ -43,6 +45,8 @@ Como usuário do sistema de brainstorm, após enviar um ou mais áudios e ver su
 2. **Given** múltiplas transcrições na sessão (áudios 1, 2 e 3), **When** o usuário solicita feedback do oráculo, **Then** todas as transcrições são incluídas no contexto na ordem cronológica de gravação.
 
 3. **Given** o usuário recebe resposta de um oráculo, **When** a resposta é exibida, **Then** ela é automaticamente persistida no histórico da sessão para uso futuro.
+
+4. **Given** o usuário envia um áudio, **When** o áudio é processado, **Then** a transcrição é realizada imediatamente e exibida junto com os botões de oráculo disponíveis.
 
 ---
 

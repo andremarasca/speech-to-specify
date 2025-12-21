@@ -3040,10 +3040,19 @@ class VoiceOrchestrator:
         )
 
     async def _handle_voice(self, event: TelegramEvent) -> None:
-        """Handle voice message - download and add to session (with auto-creation)."""
+        """Handle voice message - download, transcribe immediately, show oracles.
+        
+        Flow (007-contextual-oracle-feedback):
+        1. Download audio from Telegram
+        2. Save to session (auto-create if needed)
+        3. Transcribe IMMEDIATELY (not waiting for /done)
+        4. Show transcription text + oracle buttons
+        """
         from src.lib.exceptions import AudioPersistenceError
         from src.lib.audio_validation import validate_audio
-        from src.services.telegram.keyboards import build_finalize_keyboard
+        from src.services.telegram.keyboards import build_transcripts_with_oracles_keyboard
+        from src.services.oracle.manager import OracleManager
+        from src.lib.config import get_oracle_config
 
         # First, download the audio from Telegram
         try:
@@ -3073,21 +3082,7 @@ class VoiceOrchestrator:
         
         if not validation_result.is_valid:
             logger.warning(f"Audio validation failed: {validation_result.message}")
-            
-            # Send warning but allow user to continue
-            warning_message = (
-                f"⚠️ {validation_result.message}\n\n"
-                "The audio was still saved, but transcription may fail.\n"
-                "Send another voice message."
-            )
-            keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
-            await self.bot.send_message(
-                event.chat_id,
-                warning_message,
-                reply_markup=keyboard,
-            )
-            # Don't return - continue to save the audio anyway
-            # User can decide whether to keep it
+            # Continue anyway - user will see transcription result
 
         # Use handle_audio_receipt which handles auto-session creation
         try:
@@ -3098,56 +3093,136 @@ class VoiceOrchestrator:
                 duration_seconds=float(event.duration) if event.duration else None,
             )
 
-            # Build response message
-            duration_str = f"{event.duration}s" if event.duration else "unknown"
-            escaped_filename = escape_markdown(audio_entry.local_filename)
+            # Send typing indicator while transcribing
+            await self.bot.send_chat_action(event.chat_id, "typing")
             
-            # Check if this was a new session (first audio entry)
-            if len(session.audio_entries) == 1:
-                # New session was auto-created
-                if self.ui_service:
-                    # Use UIService with inline keyboard (005-telegram-ux-overhaul)
-                    await self.ui_service.send_session_created(
-                        chat_id=event.chat_id,
-                        session=session,
-                        audio_count=1,
+            # === IMMEDIATE TRANSCRIPTION (007-contextual-oracle-feedback) ===
+            audio_dir = session.audio_path(self.session_manager.sessions_dir)
+            transcripts_dir = session.transcripts_path(self.session_manager.sessions_dir)
+            transcripts_dir.mkdir(parents=True, exist_ok=True)
+            
+            audio_path = audio_dir / audio_entry.local_filename
+            transcript_filename = f"{audio_entry.sequence:03d}_audio.txt"
+            transcript_path = transcripts_dir / transcript_filename
+            
+            transcript_text = ""
+            transcription_success = False
+            
+            try:
+                # Transcribe the audio file immediately
+                result = self.transcription_service.transcribe(audio_path)
+                
+                if result.success:
+                    transcript_text = result.text
+                    transcription_success = True
+                    
+                    # Write transcript to file
+                    transcript_path.write_text(result.text, encoding="utf-8")
+                    
+                    # Update transcription status
+                    self.session_manager.update_transcription_status(
+                        session.id,
+                        audio_entry.sequence,
+                        TranscriptionStatus.SUCCESS,
+                        transcript_filename,
                     )
+                    
+                    # Update session name from first successful transcription
+                    if audio_entry.sequence == 1 and result.text.strip():
+                        from src.services.session.name_generator import get_name_generator
+                        from src.models.session import NameSource
+                        
+                        name_generator = get_name_generator()
+                        transcript_name = name_generator.generate_from_transcript(result.text)
+                        
+                        if transcript_name:
+                            self.session_manager.update_session_name(
+                                session.id,
+                                transcript_name,
+                                NameSource.TRANSCRIPTION,
+                            )
+                            logger.info(f"Updated session name from transcription: '{transcript_name}'")
+                    
+                    logger.info(f"Transcribed audio #{audio_entry.sequence}: {len(result.text)} chars")
                 else:
-                    # Fallback to plain text message
-                    session_name = escape_markdown(session.intelligible_name) if session.intelligible_name else session.id
-                    keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
-                    await self.bot.send_message(
-                        event.chat_id,
-                        f"✅ Session created: *{session_name}*\n\n"
-                        f"Audio #{audio_entry.sequence} received\n"
-                        f"   📁 {escaped_filename}\n"
-                        f"   ⏱️ Duration: {duration_str}\n"
-                        f"   💾 Size: {audio_entry.file_size_bytes:,} bytes\n\n"
-                        f"Send more audio.",
-                        parse_mode="Markdown",
-                        reply_markup=keyboard,
+                    # Transcription failed
+                    self.session_manager.update_transcription_status(
+                        session.id,
+                        audio_entry.sequence,
+                        TranscriptionStatus.FAILED,
                     )
+                    transcript_text = f"[Transcription failed: {result.error_message}]"
+                    logger.error(f"Transcription failed for audio #{audio_entry.sequence}: {result.error_message}")
+                    
+            except Exception as e:
+                # Unexpected transcription error
+                self.session_manager.update_transcription_status(
+                    session.id,
+                    audio_entry.sequence,
+                    TranscriptionStatus.FAILED,
+                )
+                transcript_text = f"[Transcription error: {e}]"
+                logger.exception(f"Transcription error for audio #{audio_entry.sequence}: {e}")
+
+            # === BUILD MESSAGE WITH TRANSCRIPTION + ORACLE BUTTONS ===
+            # Get available oracles for keyboard
+            oracle_config = get_oracle_config()
+            oracle_manager = OracleManager(
+                oracles_dir=oracle_config.oracles_dir,
+                cache_ttl=oracle_config.oracle_cache_ttl,
+            )
+            oracles = oracle_manager.list_oracles()
+            
+            # Get user preference for LLM history (reload session to get latest state)
+            current_session = self.session_manager.storage.load(session.id)
+            if current_session and current_session.ui_preferences:
+                include_llm_history = current_session.ui_preferences.include_llm_history
+                session_name = current_session.intelligible_name or current_session.id
+            elif current_session:
+                include_llm_history = True
+                session_name = current_session.intelligible_name or current_session.id
             else:
-                # Added to existing session
-                if self.ui_service:
-                    # Use UIService with inline keyboard
-                    session_name = session.intelligible_name if session.intelligible_name else session.id
-                    await self.ui_service.send_audio_received(
-                        chat_id=event.chat_id,
-                        audio_number=audio_entry.sequence,
-                        session_name=session_name,
-                    )
-                else:
-                    # Fallback to plain text message  
-                    keyboard = build_finalize_keyboard(simplified=self._simplified_ui)
-                    await self.bot.send_message(
-                        event.chat_id,
-                        f"✅ Audio #{audio_entry.sequence} received\n"
-                        f"   📁 {escaped_filename}\n"
-                        f"   ⏱️ Duration: {duration_str}\n"
-                        f"   💾 Size: {audio_entry.file_size_bytes:,} bytes",
-                        reply_markup=keyboard,
-                    )
+                include_llm_history = True
+                session_name = session.intelligible_name or session.id
+            
+            # Build keyboard with oracle buttons
+            keyboard = build_transcripts_with_oracles_keyboard(
+                oracles=oracles,
+                simplified=self._simplified_ui,
+                include_llm_history=include_llm_history,
+            )
+            
+            # Build response message with transcription
+            duration_str = f"{event.duration}s" if event.duration else "unknown"
+            
+            if transcription_success:
+                # Truncate long transcriptions for display
+                display_text = transcript_text
+                if len(display_text) > 2000:
+                    display_text = display_text[:2000] + "... [truncated]"
+                
+                message = (
+                    f"🎙️ *Audio #{audio_entry.sequence}* ({duration_str})\n"
+                    f"📂 Session: _{escape_markdown(session_name)}_\n\n"
+                    f"📝 *Transcription:*\n"
+                    f"```\n{display_text}\n```\n\n"
+                    f"💡 Select an oracle for feedback or send more audio."
+                )
+            else:
+                message = (
+                    f"🎙️ *Audio #{audio_entry.sequence}* ({duration_str})\n"
+                    f"📂 Session: _{escape_markdown(session_name)}_\n\n"
+                    f"⚠️ *Transcription failed*\n"
+                    f"{transcript_text}\n\n"
+                    f"Send another audio or try again."
+                )
+            
+            await self.bot.send_message(
+                event.chat_id,
+                message,
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
 
             # Save checkpoint for crash recovery (T031a)
             try:
@@ -3155,9 +3230,9 @@ class VoiceOrchestrator:
                     session=session,
                     sessions_root=self.session_manager.sessions_dir,
                     audio_sequence=audio_entry.sequence,
-                    processing_state="COLLECTING",
+                    processing_state="TRANSCRIBED",
                 )
-                logger.debug(f"Checkpoint saved after audio #{audio_entry.sequence}")
+                logger.debug(f"Checkpoint saved after transcription #{audio_entry.sequence}")
             except Exception as e:
                 logger.warning(f"Failed to save checkpoint: {e}")
 
@@ -3246,6 +3321,13 @@ async def _check_orphaned_sessions(
     # Find potentially orphaned sessions
     sessions = session_manager.list_sessions()
     orphaned = []
+    now = datetime.now()
+    
+    def get_naive_datetime(dt: datetime) -> datetime:
+        """Convert datetime to naive (no timezone) for comparison."""
+        if dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
     
     for session in sessions:
         # Check if session is in a recovery-eligible state
@@ -3254,16 +3336,22 @@ async def _check_orphaned_sessions(
             if has_checkpoint(session):
                 checkpoint = session.checkpoint_data
                 if checkpoint and checkpoint.last_checkpoint_at:
-                    age = datetime.now() - checkpoint.last_checkpoint_at
+                    age = now - get_naive_datetime(checkpoint.last_checkpoint_at)
                     if age > orphan_threshold:
                         orphaned.append(session)
                         logger.info(f"Found orphaned session: {session.id} (age: {age})")
-            elif session.updated_at:
-                # No checkpoint but has updated_at
-                age = datetime.now() - session.updated_at
+            elif session.audio_entries:
+                # No checkpoint but has audio entries - use last audio received_at
+                last_audio = session.audio_entries[-1]
+                age = now - get_naive_datetime(last_audio.received_at)
                 if age > orphan_threshold:
                     orphaned.append(session)
                     logger.info(f"Found orphaned session: {session.id} (no checkpoint, age: {age})")
+            else:
+                # No audio entries, use created_at
+                age = now - get_naive_datetime(session.created_at)
+                if age > orphan_threshold:
+                    orphaned.append(session)
     
     if not orphaned:
         logger.info("No orphaned sessions found")
