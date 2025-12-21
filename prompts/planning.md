@@ -41,7 +41,9 @@ Your goal is to filter the "Brainstorm" through the "Constitution" and the "Spec
    - No conversational filler. Be concise and objective. 
    - Use emojis as section headers for scannability.
 
-5. **Output Language**: 
+5. **Hierarquia de Precedência**: Em caso de conflito entre as fontes, a ordem de soberania absoluta é: **Constituição > Especificação > Brainstorm**. Nenhuma funcionalidade ou desejo do brainstorm pode violar a Constituição ou o escopo do MVP definido na Especificação.
+
+6. **Output Language**: 
    - You MUST generate the final response exclusively in Brazilian Portuguese (PT-BR), regardless of the language used in the input placeholders.
 
 # Final Output Format (Markdown)
