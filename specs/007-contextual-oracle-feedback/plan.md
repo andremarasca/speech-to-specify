@@ -83,7 +83,8 @@ src/
 │   │   └── loader.py        # Markdown parsing, title extraction
 │   ├── llm/
 │   │   ├── context_builder.py  # NEW: Build context from session
-│   │   └── prompt_injector.py  # NEW: Inject context into oracle prompt
+│   │   ├── prompt_injector.py  # NEW: Inject context into oracle prompt
+│   │   └── oracle_client.py    # NEW: LLM API client with timeout handling
 │   └── telegram/
 │       ├── keyboards.py     # EXTEND: Add build_oracle_keyboard()
 │       └── callbacks.py     # EXTEND: Handle oracle selection callbacks

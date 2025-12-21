@@ -162,6 +162,12 @@ async def handle_oracle_callback(
 **When** oracle keyboard is built  
 **Then** toggle button shows "🔗 Histórico: OFF"
 
+### BC-TC-013: Volatile Memory Mode Alert
+
+**Given** persistence subsystem fails (e.g., disk write error)  
+**When** user sends audio or requests oracle feedback  
+**Then** message includes visible alert: "⚠️ Modo memória volátil - respostas não serão salvas"
+
 ## Callback Data Registry
 
 | Pattern | Handler | Description |
@@ -179,6 +185,7 @@ async def handle_oracle_callback(
 | LLM timeout | "⏱️ Tempo esgotado ao aguardar resposta. Tente novamente." |
 | LLM error | "⚠️ Erro ao obter feedback: {error_summary}" |
 | No oracles available | "🎭 Nenhum oráculo disponível. Adicione arquivos em {oracles_dir}." |
+| Volatile memory mode | "⚠️ Modo memória volátil ativo - histórico não será persistido." |
 
 ## Test Requirements
 

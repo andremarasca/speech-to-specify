@@ -12,8 +12,8 @@
 │  - state: SessionState                                           │
 │  - audio_entries: list[AudioEntry]                              │
 │  - llm_entries: list[LlmEntry]        ◄── NEW                   │
-│  - ui_preferences: UIPreferences                                 │
-│       └── include_llm_history: bool   ◄── NEW                   │
+│  - ui_preferences: UIPreferences      (src/models/ui_state.py)  │
+│       └── include_llm_history: bool   ◄── NEW (extend existing) │
 └───────────────────────┬─────────────────────────────────────────┘
                         │
           ┌─────────────┴─────────────┐

@@ -69,7 +69,7 @@
 ### Implementation for User Story 1
 
 - [ ] T015 [P] [US1] Create ContextBuilder service in `src/services/llm/context_builder.py` (BC-CB-001 to BC-CB-009)
-- [ ] T016 [P] [US1] Create PromptInjector in `src/services/llm/prompt_injector.py` (placeholder replacement)
+- [ ] T016 [P] [US1] Create PromptInjector in `src/services/llm/prompt_injector.py` — FR-005: inject context into oracle placeholder (default `{{CONTEXT}}`); fallback: append context at end if placeholder missing
 - [ ] T017 [US1] Implement LLM request with timeout in `src/services/llm/oracle_client.py`
 - [ ] T018 [US1] Implement response persistence to `llm_responses/` in `src/services/session/storage.py`
 - [ ] T019 [US1] Implement oracle callback handler `handle_oracle_callback` in `src/cli/daemon.py` (BC-TC-003, BC-TC-006)
@@ -166,7 +166,7 @@
 - [ ] T046 [US5] Implement LLM error handling with error summary (BC-TC-008)
 - [ ] T047 [US5] Handle stale oracle button clicks (BC-TC-005)
 - [ ] T048 [US5] Handle session with no transcripts on oracle click (BC-TC-004)
-- [ ] T049 [US5] Implement volatile memory mode alert (FR-013)
+- [ ] T049 [US5] Implement volatile memory mode alert (FR-013, BC-TC-013)
 - [ ] T050 [US5] Add structured logging for all error conditions
 
 **Checkpoint**: US5 complete - errors handled gracefully, system resilient

@@ -126,7 +126,7 @@ Como usuário, quero que o sistema continue funcionando de forma degradada quand
 
 - **Placeholder ausente no prompt**: O que acontece se o arquivo de personalidade não contiver placeholder para inserção de contexto? *Assunção: O sistema utiliza um placeholder padrão configurável (ex: `{{CONTEXT}}`).*
 - **Diretório de personalidades vazio**: O que acontece se não existirem arquivos de personalidade? *Assunção: Uma mensagem informativa é exibida indicando que nenhum oráculo está disponível.*
-- **Callback data excede limite do Telegram**: Nomes de arquivos muito longos podem exceder o limite de 64 bytes do callback_data. *Assunção: Arquivos com caminhos longos são ignorados com log de warning.*
+- **Callback data excede limite do Telegram**: Nomes de arquivos muito longos podem exceder o limite de 64 bytes do callback_data. *Resolução: Oracle IDs utilizam hash SHA256 truncado de 8 caracteres (formato `oracle:{8-char-id}` = 15 bytes), garantindo conformidade com o limite independente do tamanho do caminho do arquivo.*
 - **Sessão sem transcrições**: O que acontece se o usuário clicar em um oráculo antes de enviar qualquer áudio? *Assunção: Mensagem informativa indicando que não há conteúdo para analisar.*
 
 ## Requirements *(mandatory)*
@@ -160,10 +160,10 @@ Como usuário, quero que o sistema continue funcionando de forma degradada quand
 ### Measurable Outcomes
 
 - **SC-001**: Após cada transcrição, os botões de oráculos disponíveis são exibidos em menos de 200ms (latência imperceptível).
-- **SC-002**: A n-ésima resposta de oráculo demonstra compreensão do conteúdo das transcrições e respostas anteriores (verificável via referências explícitas ao conteúdo prévio).
+- **SC-002**: A n-ésima resposta de oráculo demonstra compreensão do conteúdo das transcrições e respostas anteriores. **Verificação**: Testes de integração DEVEM validar que o contexto enviado à LLM contém as transcrições e respostas anteriores concatenadas; validação de qualidade da resposta é checkpoint manual em QA.
 - **SC-003**: Adicionar um novo arquivo de personalidade no diretório configurado resulta em novo botão disponível na próxima interação, sem alteração de código ou reinício do sistema.
 - **SC-004**: Em caso de falha de persistência, o sistema continua operacional com alerta visível e degradação graceful.
-- **SC-005**: Usuários realizam em média 3 ou mais interações com oráculos diferentes na mesma sessão (indicador de engajamento profundo).
+- **SC-005**: *(Business KPI - fora do escopo de testes automatizados)* Usuários realizam em média 3 ou mais interações com oráculos diferentes na mesma sessão (indicador de engajamento profundo).
 - **SC-006**: 100% das respostas de LLM são persistidas com sucesso quando o subsistema de armazenamento está operacional.
 
 ## Assumptions
