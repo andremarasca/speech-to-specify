@@ -65,6 +65,12 @@ class WhisperConfig(BaseSettings):
         description="Directory for model cache",
     )
 
+    language: str = Field(
+        default="pt",
+        alias="WHISPER_LANGUAGE",
+        description="Language code for transcription (e.g., pt, en, es)",
+    )
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
