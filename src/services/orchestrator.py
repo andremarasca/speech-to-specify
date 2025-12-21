@@ -35,17 +35,20 @@ class NarrativePipeline:
     that builds on the previous ones. All LLM interactions are logged for auditability.
 
     Steps:
-        1. constitution - Extract governing principles
-        2. specification - Define requirements and user stories
-        3. planning - Create implementation plan
+        1. semantic_normalization - Reduce linguistic entropy while preserving intent
+        2. constitution - Extract governing principles
+        3. specification - Define requirements and user stories
+        4. planning - Create implementation plan
+        5. tasks - Generate execution directives
     """
 
     # Fixed step sequence - immutable pipeline definition
     STEPS = [
-        PipelineStep(number=1, name="constitution", prompt_template="constitution"),
-        PipelineStep(number=2, name="specification", prompt_template="specification"),
-        PipelineStep(number=3, name="planning", prompt_template="planning"),
-        PipelineStep(number=4, name="tasks", prompt_template="tasks"),
+        PipelineStep(number=1, name="semantic_normalization", prompt_template="semantic_normalization"),
+        PipelineStep(number=2, name="constitution", prompt_template="constitution"),
+        PipelineStep(number=3, name="specification", prompt_template="specification"),
+        PipelineStep(number=4, name="planning", prompt_template="planning"),
+        PipelineStep(number=5, name="tasks", prompt_template="tasks"),
     ]
 
     def __init__(
@@ -185,13 +188,16 @@ class NarrativePipeline:
 
         # Add previous artifacts as context
         if step.number >= 2 and 1 in self._artifacts:
-            variables["constitution_content"] = self._artifacts[1].content
+            variables["semantic_normalization"] = self._artifacts[1].content
 
         if step.number >= 3 and 2 in self._artifacts:
-            variables["specification_content"] = self._artifacts[2].content
+            variables["constitution_content"] = self._artifacts[2].content
 
         if step.number >= 4 and 3 in self._artifacts:
-            variables["planning_content"] = self._artifacts[3].content
+            variables["specification_content"] = self._artifacts[3].content
+
+        if step.number >= 5 and 4 in self._artifacts:
+            variables["planning_content"] = self._artifacts[4].content
 
         return load_prompt(step.prompt_template, **variables)
 

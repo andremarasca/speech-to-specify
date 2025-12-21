@@ -51,11 +51,11 @@ class TestStepSequenceValidation:
 
         assert len(names) == len(set(names)), "Step names must be unique"
 
-    def test_constitution_is_first(self):
-        """Test that constitution is the first step."""
+    def test_semantic_normalization_is_first(self):
+        """Test that semantic_normalization is the first step."""
         steps = NarrativePipeline.STEPS
 
-        assert steps[0].name == "constitution"
+        assert steps[0].name == "semantic_normalization"
         assert steps[0].number == 1
 
     def test_tasks_is_last(self):
