@@ -33,7 +33,7 @@ class Artifact(BaseModel):
     @classmethod
     def step_name_valid(cls, v: str) -> str:
         """Validate step_name is a known step."""
-        valid_steps = {"constitution", "specification", "planning", "tasks"}
+        valid_steps = {"semantic_normalization", "constitution", "specification", "planning", "tasks"}
         if v not in valid_steps:
             from src.lib.exceptions import ValidationError
 

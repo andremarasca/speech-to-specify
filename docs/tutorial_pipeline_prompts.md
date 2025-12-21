@@ -111,7 +111,20 @@ STEPS = [
 ]
 ```
 
-### Passo 3: Atualizar _build_prompt()
+### Passo 3: Atualizar Validação do Artifact
+
+Em [artifact.py](../src/models/artifact.py), adicione o novo step à lista de steps válidos no validador:
+
+```python
+@field_validator("step_name")
+@classmethod
+def step_name_valid(cls, v: str) -> str:
+    """Validate step_name is a known step."""
+    valid_steps = {"meu_novo_step", "constitution", "specification", "planning", "tasks"}
+    # ...
+```
+
+### Passo 4: Atualizar _build_prompt()
 
 Ajuste o método para:
 
@@ -136,7 +149,7 @@ def _build_prompt(self, step: PipelineStep) -> str:
     # ... ajustar todos os números
 ```
 
-### Passo 4: Atualizar Prompts Existentes
+### Passo 5: Atualizar Prompts Existentes
 
 Substitua `{{ input_content }}` por `{{ meu_novo_step }}` em todos os prompts que agora devem consumir o artefato do novo step ao invés do input original:
 
@@ -150,7 +163,7 @@ Substitua `{{ input_content }}` por `{{ meu_novo_step }}` em todos os prompts qu
 {{ meu_novo_step }}
 ```
 
-### Passo 5: Atualizar Testes Unitários
+### Passo 6: Atualizar Testes Unitários
 
 Em [test_orchestrator.py](../tests/unit/test_orchestrator.py), ajuste os testes que verificam:
 
@@ -225,12 +238,17 @@ Após fazer as alterações, valide:
 - [ ] Template do novo step criado em `prompts/`
 - [ ] Step adicionado em `STEPS` com número correto
 - [ ] Números dos steps contíguos (1, 2, 3...)
+- [ ] Step adicionado em `valid_steps` no validador de `artifact.py`
 - [ ] `_build_prompt()` atualizado com novas variáveis
 - [ ] Prompts existentes atualizados para usar nova variável
 - [ ] Testes unitários atualizados (ex: `test_constitution_is_first` → `test_semantic_normalization_is_first`)
 - [ ] Testes unitários passando: `pytest tests/unit/test_orchestrator.py -v`
 
 ## Troubleshooting
+
+### Erro: "Invalid step_name 'X'. Must be one of: ..."
+
+O step_name não está na lista de steps válidos em [artifact.py](../src/models/artifact.py). Adicione o novo step ao set `valid_steps` no validador `step_name_valid`.
 
 ### Erro: "Prompt template not found"
 

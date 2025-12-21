@@ -128,11 +128,12 @@ class WhisperTranscriptionService(TranscriptionService):
             result = self._model.transcribe(
                 str(audio_path),
                 fp16=self._use_fp16,
-                language="en",  # Force English for small.en model
+                language="pt",
+                task="transcribe"
             )
 
             text = result.get("text", "").strip()
-            language = result.get("language", "en")
+            language = result.get("language", "pt")
 
             # Calculate duration from segments if available
             segments = result.get("segments", [])
