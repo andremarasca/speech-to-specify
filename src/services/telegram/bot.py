@@ -9,6 +9,7 @@ The bot handles:
 - Callback queries: Inline keyboard button presses for UI interactions
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Callable, Awaitable, Optional
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Telegram message limit is 4096 characters
 TELEGRAM_MESSAGE_LIMIT = 4096
+
+# Retry configuration for transient network errors
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds
 
 
 class TelegramBotAdapter:
@@ -529,6 +534,37 @@ class TelegramBotAdapter:
         
         return chunks
 
+    async def _send_with_retry(self, chat_id: int, text: str, parse_mode: str = None, reply_markup=None) -> None:
+        """
+        Send a single message with retry logic for transient errors.
+        
+        Implements exponential backoff for network timeouts.
+        """
+        from telegram.error import TimedOut, NetworkError
+        
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                await self._app.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup,
+                )
+                return  # Success
+            except (TimedOut, NetworkError) as e:
+                last_error = e
+                if attempt < MAX_RETRIES - 1:
+                    delay = RETRY_BASE_DELAY * (2 ** attempt)  # Exponential backoff
+                    logger.warning(f"Telegram timeout (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay}s: {e}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Telegram send failed after {MAX_RETRIES} attempts: {e}")
+        
+        # Re-raise the last error if all retries failed
+        if last_error:
+            raise last_error
+
     async def send_message(self, chat_id: int, text: str, parse_mode: str = None, reply_markup=None) -> None:
         """
         Send text message to user.
@@ -536,6 +572,8 @@ class TelegramBotAdapter:
         If the message exceeds Telegram's 4096 character limit, it will be
         automatically split into multiple messages. The reply_markup will
         only be attached to the last message.
+        
+        Includes retry logic with exponential backoff for transient network errors.
 
         Args:
             chat_id: Target chat ID
@@ -551,7 +589,7 @@ class TelegramBotAdapter:
         
         for i, chunk in enumerate(chunks):
             is_last = (i == len(chunks) - 1)
-            await self._app.bot.send_message(
+            await self._send_with_retry(
                 chat_id=chat_id,
                 text=chunk,
                 parse_mode=parse_mode,
