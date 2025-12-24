@@ -29,6 +29,9 @@ from src.services.telegram.adapter import TelegramEvent
 
 logger = logging.getLogger(__name__)
 
+# Telegram message limit is 4096 characters
+TELEGRAM_MESSAGE_LIMIT = 4096
+
 
 class TelegramBotAdapter:
     """
@@ -474,10 +477,65 @@ class TelegramBotAdapter:
         await self._dispatch_event(event)
 
     # Message sending methods
+    
+    def _split_message(self, text: str, limit: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+        """
+        Split a long message into chunks that fit Telegram's message limit.
+        
+        Splits at paragraph boundaries when possible, otherwise at line breaks,
+        otherwise at the character limit.
+        
+        Args:
+            text: The message text to split
+            limit: Maximum characters per message (default: 4096)
+            
+        Returns:
+            List of message chunks
+        """
+        if len(text) <= limit:
+            return [text]
+        
+        chunks = []
+        remaining = text
+        
+        while remaining:
+            if len(remaining) <= limit:
+                chunks.append(remaining)
+                break
+            
+            # Try to find a good split point
+            chunk = remaining[:limit]
+            
+            # Try paragraph break first (double newline)
+            split_pos = chunk.rfind('\n\n')
+            if split_pos > limit // 2:  # Only use if reasonably far into the chunk
+                split_pos += 1  # Include one newline
+            else:
+                # Try single line break
+                split_pos = chunk.rfind('\n')
+                if split_pos > limit // 2:
+                    split_pos += 1  # Include newline
+                else:
+                    # Try space
+                    split_pos = chunk.rfind(' ')
+                    if split_pos > limit // 2:
+                        split_pos += 1  # Include space
+                    else:
+                        # Hard split at limit
+                        split_pos = limit
+            
+            chunks.append(remaining[:split_pos].rstrip())
+            remaining = remaining[split_pos:].lstrip()
+        
+        return chunks
 
     async def send_message(self, chat_id: int, text: str, parse_mode: str = None, reply_markup=None) -> None:
         """
         Send text message to user.
+        
+        If the message exceeds Telegram's 4096 character limit, it will be
+        automatically split into multiple messages. The reply_markup will
+        only be attached to the last message.
 
         Args:
             chat_id: Target chat ID
@@ -488,12 +546,18 @@ class TelegramBotAdapter:
         if not self._app:
             raise RuntimeError("Bot not started")
 
-        await self._app.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode=parse_mode,
-            reply_markup=reply_markup,
-        )
+        # Split long messages
+        chunks = self._split_message(text)
+        
+        for i, chunk in enumerate(chunks):
+            is_last = (i == len(chunks) - 1)
+            await self._app.bot.send_message(
+                chat_id=chat_id,
+                text=chunk,
+                parse_mode=parse_mode,
+                # Only attach keyboard to last message
+                reply_markup=reply_markup if is_last else None,
+            )
 
     async def delete_message(self, chat_id: int, message_id: int) -> bool:
         """
