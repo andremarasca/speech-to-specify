@@ -10,6 +10,7 @@ from typing import Optional
 
 from src.models.session import Session, SessionState
 from src.services.session.manager import SessionManager
+from src.lib.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,22 @@ class DownstreamProcessor:
     Follows contracts/downstream-processor.md interface.
     """
 
-    def __init__(self, session_manager: SessionManager):
+    def __init__(self, session_manager: SessionManager, default_provider: str | None = None):
         """
         Initialize the downstream processor.
 
         Args:
             session_manager: SessionManager for state updates
+            default_provider: LLM provider to use (default: from NARRATE_PROVIDER env var)
         """
         self.session_manager = session_manager
+        # Load provider from .env via NARRATE_PROVIDER if not explicitly provided
+        if default_provider is None:
+            settings = get_settings()
+            self.default_provider = settings.llm_provider
+        else:
+            self.default_provider = default_provider
+        logger.info(f"DownstreamProcessor initialized with provider: {self.default_provider}")
 
     def consolidate_transcripts(self, session: Session) -> Path:
         """
@@ -83,13 +92,13 @@ class DownstreamProcessor:
         logger.info(f"Consolidated transcripts to {input_path}")
         return input_path
 
-    def process(self, session: Session, provider: str = "deepseek") -> Path:
+    def process(self, session: Session, provider: str | None = None) -> Path:
         """
         Invoke the narrative pipeline with consolidated transcripts.
 
         Args:
             session: Session to process
-            provider: LLM provider to use
+            provider: LLM provider to use (default: self.default_provider from .env)
 
         Returns:
             Path to output directory
@@ -97,6 +106,12 @@ class DownstreamProcessor:
         Raises:
             ProcessingError: If processing fails
         """
+        # Use instance default if not provided
+        if provider is None:
+            provider = self.default_provider
+        
+        logger.info(f"Processing session {session.id} with provider: {provider}")
+        
         if session.state != SessionState.TRANSCRIBED:
             raise ProcessingError(
                 f"Session must be in TRANSCRIBED state, not {session.state.value}"
