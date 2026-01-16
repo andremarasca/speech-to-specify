@@ -208,7 +208,6 @@ __marimo__/
 # Spec-kit
 .github/
 .specify/
-.vscode/
 
 # Project output (narrative pipeline executions)
 output/

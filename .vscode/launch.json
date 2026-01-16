@@ -1,0 +1,167 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // ══════════════════════════════════════════════════════════════════
+        // 📱 TELEGRAM DAEMON - Voice Orchestrator (OATL)
+        // ══════════════════════════════════════════════════════════════════
+        {
+            "name": "📱 Telegram: Daemon OATL",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.cli.daemon",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "presentation": {
+                "group": "0_telegram",
+                "order": 1
+            }
+        },
+        // ══════════════════════════════════════════════════════════════════
+        // 🤖 NARRATIVE PIPELINE - CLI com Providers
+        // ══════════════════════════════════════════════════════════════════
+        {
+            "name": "🤖 Python: CLI DeepSeek",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.cli.main",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "${input:inputFile}",
+                "--provider",
+                "deepseek",
+                "--verbose"
+            ],
+            "presentation": {
+                "group": "1_ai_cli",
+                "order": 1
+            }
+        },
+        {
+            "name": "🤖 Python: CLI OpenAI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.cli.main",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "${input:inputFile}",
+                "--provider",
+                "openai",
+                "--verbose"
+            ],
+            "presentation": {
+                "group": "1_ai_cli",
+                "order": 2
+            }
+        },
+        {
+            "name": "🧠 Python: CLI Anthropic",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.cli.main",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "${input:inputFile}",
+                "--provider",
+                "anthropic",
+                "--verbose"
+            ],
+            "presentation": {
+                "group": "1_ai_cli",
+                "order": 3
+            }
+        },
+        // ══════════════════════════════════════════════════════════════════
+        // 🐍 PYTHON - Debug Genérico
+        // ══════════════════════════════════════════════════════════════════
+        {
+            "name": "🐍 Python: Arquivo Atual",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "presentation": {
+                "group": "2_python",
+                "order": 1
+            }
+        },
+        {
+            "name": "🐍 Python: Arquivo + Args",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "${command:pickArgs}"
+            ],
+            "presentation": {
+                "group": "2_python",
+                "order": 2
+            }
+        },
+        {
+            "name": "🐍 Python: Arquivo + pipInstall",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "preLaunchTask": "pipInstall",
+            "presentation": {
+                "group": "2_python",
+                "order": 3
+            }
+        },
+        // ══════════════════════════════════════════════════════════════════
+        // 🧪 TESTES
+        // ══════════════════════════════════════════════════════════════════
+        {
+            "name": "🧪 Pytest: Todos os Testes",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "tests/",
+                "-v"
+            ],
+            "presentation": {
+                "group": "3_tests",
+                "order": 1
+            }
+        },
+        {
+            "name": "🧪 Pytest: Arquivo Atual",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "${file}",
+                "-v"
+            ],
+            "presentation": {
+                "group": "3_tests",
+                "order": 2
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "inputFile",
+            "type": "promptString",
+            "description": "Caminho do arquivo (Use aspas se houver espaços)",
+            "default": "${workspaceFolder}/sample_input.txt"
+        }
+    ]
+}

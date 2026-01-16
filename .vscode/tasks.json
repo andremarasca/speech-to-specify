@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "pipInstall",
+			"type": "shell",
+			"windows": {
+				"command": "${workspaceFolder}\\.venv\\Scripts\\python -m pip install -r requirements.txt"
+			},
+			"problemMatcher": []
+		}
+	]
+}

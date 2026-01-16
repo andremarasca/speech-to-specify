@@ -1,0 +1,40 @@
+{
+    // Aplica automaticamente as mudanças do Copilot sem precisar clicar em "Keep"
+    "chat.editing.autoAcceptDelay": 0,
+    // Ativa automaticamente o ambiente virtual no terminal integrado
+    "python.terminal.activateEnvironment": true,
+    // Define o caminho onde o VS Code deve procurar ambientes virtuais
+    // Nota: python.venvPath não deve apontar diretamente para a pasta .venv,
+    // e sim para o diretório onde ambientes são criados
+    "python.venvPath": "${workspaceFolder}",
+    // VS Code irá procurar por ambientes dentro de .venv
+    "python.venvFolders": [
+        ".venv"
+    ],
+    // Define o interpretador padrão do Python
+    "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+    // Usa o servidor Jupyter local
+    "jupyter.jupyterServerType": "local",
+    // Ativa o PyTest como framework de testes
+    "python.testing.pytestEnabled": true,
+    // Code Runner: força uso do Python do venv
+    "code-runner.executorMap": {
+        "python": "$pythonPath -u \"$fullFileName\""
+    },
+    "code-runner.respectShebang": false,
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.autoApprove": true,
+    "chat.tools.terminal.autoApprove": true,
+    "github.copilot.chat.agent.autoFix": true,
+    "python.testing.pytestPath": "${workspaceFolder}\\.venv\\Scripts\\pytest.exe",
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false
+}
