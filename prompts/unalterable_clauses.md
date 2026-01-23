@@ -1,6 +1,6 @@
 # Cláusulas Pétreas (Regras Fixas e Inegociáveis)
 
-> **Princípio Fundamental:** LLMs performam melhor quando o sistema é mais simples e direto do que academicamente perfeito, mais explícito do que elegante e mais previsível do que flexível. Arquitetura para IA ≠ arquitetura para humanos.
+> **Princípio Fundamental:** LLMs performam melhor quando o sistema é **determinístico, explícito e modular**. Priorize a **navegabilidade** sobre a perfeição acadêmica, a **verificabilidade automática** sobre a elegância, e a **composição de partes simples** sobre a flexibilidade monolítica. Arquitetura para IA é uma **engenharia de restrições** que maximiza a previsibilidade do output.
 
 Toda saída gerada contém e respeita estas regras em todos os projetos:
 
@@ -12,13 +12,26 @@ Toda saída gerada contém e respeita estas regras em todos os projetos:
 
 Qualidade de código é validada por **ferramentas automatizadas**, não por revisão humana. Obrigatório:
 
-- `mypy --strict` passa sem erros
+- `mypy --strict` passa sem erros (domínio e ports obrigatório; adapters pode relaxar para `--warn-unused-ignores`)
 - Funções têm type hints completos
 - Docstrings explicam **propósito** (não implementação)
 - SOLID e Object Calisthenics são referências de design, não checklists de conformidade
-- **Logs estruturados (JSON)** sempre que possível, contendo `context`, `level` e `error_code` para auditoria programática
+- **Logs estruturados (JSON)** sempre que possível, seguindo schema canônico com `timestamp`, `context`, `level`, `error_code` e `message`
 
 A IA não consegue manter disciplina linha-a-linha sem validação externa. **Ferramentas são a lei.**
+
+#### Schema de Log Canônico
+
+Todo log deve seguir este formato para garantir auditoria programática consistente:
+
+```python
+class LogEvent(TypedDict):
+    timestamp: str      # ISO 8601
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+    context: str        # Módulo/função origem
+    error_code: str | None
+    message: str
+```
 
 ### 2. Verificação de Execução Obrigatória
 
@@ -27,6 +40,7 @@ Toda modificação de código requer, além da execução dos testes unitários:
 1. **Execução completa** do aplicativo (backend e frontend, se aplicável)
 2. **Monitoramento ativo** por pelo menos 1 minuto
 3. **Verificação de logs** e arquivos de estado para garantir ausência de erros silenciosos
+4. **Leitura das últimas 50 linhas** de `logs/last_run.log` (quando disponível) antes de declarar tarefa concluída
 
 **Ao finalizar qualquer tarefa de codificação**, incluir seção:
 
@@ -39,6 +53,8 @@ Toda modificação de código requer, além da execução dos testes unitários:
 - [ ] Verificou logs e arquivos de estado para garantir que não há erros silenciosos
 - [ ] Scripts .bat testados (se modificados)
 ```
+
+> **Nota:** O checklist deve ser verificável por artefatos sempre que possível (logs gerados, outputs esperados), não apenas declarativo.
 
 ### 3. Integridade de Testes
 
@@ -115,15 +131,16 @@ class OrderRepository(Protocol):
 - Lógica de domínio é implementada como **funções puras** sempre que possível (mesma entrada produz mesma saída, sem side effects)
 - I/O e side effects são **isolados na camada de adapters** (shell imperativo)
 - Funções puras são a **unidade primária de teste**
-- **Complexidade ciclomática máxima: 5.** Condicionais aninhadas profundas devem ser extraídas em funções nomeadas
+- **Complexidade ciclomática máxima: 7.** Condicionais aninhadas profundas devem ser extraídas em funções nomeadas (buscar < 5; acima de 10 requer revisão obrigatória)
 
 ### 8. Granularidade de Arquivos
 
 Cada arquivo `.py` exporta no máximo **uma classe pública** ou um conjunto coeso de funções relacionadas:
 
-- Arquivos com mais de **150 linhas** são candidatos a split
+- Arquivos com mais de **200 linhas** são candidatos a split (150-250 é aceitável se coeso)
 - A IA opera melhor com **unidades atômicas**
 - Um arquivo, uma responsabilidade exportável
+- **Critério de coesão:** se os testes sempre importam o mesmo conjunto de funções juntas, o arquivo está coeso
 
 ```
 ❌ Ruim: services/user_service.py (500+ linhas)
@@ -197,6 +214,7 @@ Todo dado de entrada tem tipo **validado explicitamente** antes de uso no domín
 
 - URLs, credenciais, portas, timeouts, limites → arquivos de configuração (`.env`)
 - O Agente Executor extrai todo parâmetro configurável para o ambiente
+- **`.env` e `.env.example` devem estar sempre sincronizados**: toda variável em `.env` deve existir em `.env.example` (com valor de exemplo) e vice-versa
 - Violações desta regra **invalidam a entrega**
 
 ### 13. Injeção de Dependências Explícita
@@ -231,6 +249,8 @@ O Agente Executor recebe **contratos** (Protocols, interfaces, tipos) como entra
 - A IA **implementa contratos**, não inventa interfaces
 - Código gerado sem contrato prévio é tratado como **rascunho**, não como entrega
 
+**Exceção - Fase de Descoberta:** Para exploração de APIs externas novas, é permitido criar código "sujo" em `sandbox/` ou `explorations/`, marcado como descartável e **nunca integrado ao `src/`**. Este código serve apenas como especificação informal para criar o Protocol real.
+
 ### 15. Glossário de Linguagem Ubíqua
 
 Um conceito possui **um único nome canônico** em todo o sistema:
@@ -238,6 +258,7 @@ Um conceito possui **um único nome canônico** em todo o sistema:
 - Não misturar `User`, `Customer`, `Account` para o mesmo conceito
 - Não misturar `Repository`, `Gateway`, `Storage` arbitrariamente
 - Manter arquivo `docs/glossary.md` com definições fechadas
+- **Alternativa:** Manter glossário como código em `src/shared/glossary.py` com constantes/Enums documentados
 
 ### 16. Tutorial de Extensibilidade Obrigatório
 
@@ -294,6 +315,7 @@ scripts/
 ├── run_mypy.bat         # Valida tipos
 ├── install.bat          # Instala dependências
 ├── setup_env.bat        # Configura ambiente virtual
+├── check_all.bat        # Roda mypy + pytest + lint de uma vez
 └── [feature]_*.bat      # Variações por funcionalidade
 ```
 
@@ -303,6 +325,17 @@ scripts/
 - Mudanças estruturais que precisem ajustar os .bat atuais **devem atualizá-los**
 - **Todos os .bat devem ser testados** após qualquer modificação
 - Scripts devem ser **autoexplicativos** (incluir `echo` descrevendo o que fazem)
+- **Encoding UTF-8 e line endings consistentes** (preferir LF; CRLF apenas se necessário para Windows)
+
+**Documentação mínima de cada .bat:**
+```batch
+@echo off
+REM ================================================
+REM Entradas esperadas: [variáveis de ambiente, argumentos]
+REM Outputs esperados: [arquivos gerados, códigos de saída]
+REM Efeitos colaterais: [processos iniciados, arquivos modificados]
+REM ================================================
+```
 
 ---
 
@@ -357,13 +390,63 @@ Para eliminar ambiguidade e facilitar navegação:
 - **Value Objects:** substantivos adjetivados (ex: `EmailAddress`, `PositiveInteger`)
 - **Erros:** `[Domain][ErrorType]Error` (ex: `UserNotFoundError`, `PaymentFailedError`)
 
+### 22. Proibição de Magia e Metaprogramação
+
+LLMs quebram completamente com lógica implícita invisível. É **terminantemente proibido**:
+
+- Metaprogramação (metaclasses, `__new__` com lógica complexa)
+- Decorators com lógica implícita de transformação (decorators simples de logging são permitidos)
+- Magic methods fora de Value Objects e dataclasses
+- Reflection para alterar comportamento em runtime
+- Monkey patching
+- Import-time side effects
+
+**Regra:** Se o comportamento não é óbvio lendo o código linha a linha, está proibido.
+
+### 23. Mapa de Contexto do Projeto
+
+Para projetos com mais de 20 arquivos, manter um **mapa de navegação** atualizado:
+
+- Arquivo `docs/map.md` descrevendo árvore de arquivos e responsabilidade resumida de cada módulo
+- Toda criação/deleção de arquivo deve atualizar o mapa
+- O mapa serve como "GPS" para a IA em cada novo prompt
+
+**Formato sugerido:**
+```markdown
+## Mapa do Projeto
+
+### src/domain/
+- `entities/user.py` - Entidade User com validações de domínio
+- `services/create_user.py` - Lógica pura de criação de usuário
+
+### src/adapters/outbound/
+- `postgres_user_adapter.py` - Persistência de User em PostgreSQL
+```
+
+### 24. Erros com Semântica Formal
+
+Além de tipados, erros de domínio devem seguir um contrato semântico mínimo:
+
+```python
+class DomainError(Protocol):
+    @property
+    def code(self) -> str: ...
+    @property
+    def message(self) -> str: ...
+```
+
+Isso permite:
+- Logs automáticos padronizados
+- Mapeamento determinístico para HTTP status codes ou respostas CLI
+- Menos if/else em adapters de apresentação
+
 ---
 
 ## Resumo: O que Maximiza Sucesso da IA
 
 | Prática                         | Impacto                          |
 | ------------------------------- | -------------------------------- |
-| Arquivos pequenos (<150 linhas) | IA lê contexto completo          |
+| Arquivos pequenos (<200 linhas) | IA lê contexto completo          |
 | Estrutura previsível            | IA navega sem "descobrir"        |
 | Protocols como spec             | IA sabe o que implementar        |
 | Result pattern                  | Fluxos explícitos, sem surpresas |
@@ -375,7 +458,23 @@ Para eliminar ambiguidade e facilitar navegação:
 | YAGNI rigoroso                  | Evita over-engineering           |
 | Nomenclatura determinística     | Zero ambiguidade                 |
 | Logs estruturados               | Auditoria automática             |
+| Proibição de magia              | Comportamento sempre explícito   |
+| Mapa de contexto                | IA navega sem "descobrir"        |
+| .env sincronizado               | Configuração sempre completa     |
 
 ---
 
-**Arquitetura boa para IA é: previsível 📐 · repetitiva 🔁 · restritiva 🔒 · semanticamente explícita 🧠**
+## Arquivos Âncora (Read-Only para IA)
+
+Os seguintes arquivos são **referência**, não devem ser modificados pela IA sem aprovação explícita:
+
+- `prompts/unalterable_clauses.md` (este arquivo)
+- `prompts/constitution.md`
+- `docs/glossary.md`
+- `docs/map.md`
+
+Estes servem como **âncoras cognitivas** para manter consistência ao longo do tempo.
+
+---
+
+**Arquitetura boa para IA é: previsível 📐 · repetitiva 🔁 · restritiva 🔒 · semanticamente explícita 🧠 · verificável por artefatos ✅**
