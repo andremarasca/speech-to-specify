@@ -20,6 +20,34 @@ Qualidade de código é validada por **ferramentas automatizadas**, não por rev
 
 A IA não consegue manter disciplina linha-a-linha sem validação externa. **Ferramentas são a lei.**
 
+#### Pipeline de Enforcement Obrigatório
+
+Validação automática deve ser executada em pelo menos **um** destes pontos:
+
+1. **Pre-commit hook** (preferido para feedback rápido)
+2. **CI pipeline** (obrigatório se o projeto tem CI)
+3. **Script `scripts/check_all.py`** (mínimo aceitável — orquestrador portável fornecido em `scripts/`)
+
+O orquestrador `scripts/check_all.py` executa em sequência: **mypy → pytest → check_imports → check_file_sizes → generate_map → validate_env → check_explorations**. Wrappers `check_all.bat` (Windows) e `check_all.sh` (Unix) são fornecidos para conveniência.
+
+```bash
+# Execução completa
+python scripts/check_all.py
+
+# Pular testes (apenas validação estrutural)
+python scripts/check_all.py --skip-tests --skip-mypy
+
+# Continuar mesmo após falha (para ver todas as violações)
+python scripts/check_all.py --continue
+```
+
+Para dependências externas sem stubs (`py.typed`):
+- Usar `# type: ignore[import-untyped]` com comentário explicativo
+- Manter lista de exceções em `mypy.ini` sob seção `[mypy-<package>]`
+- Exceções devem ser revisadas a cada release
+
+> **Regra:** Se o enforcement não está automatizado, não é enforcement — é sugestão.
+
 #### Schema de Log Canônico
 
 Todo log deve seguir este formato para garantir auditoria programática consistente:
@@ -41,9 +69,12 @@ class LogEvent(TypedDict):
 Toda modificação de código requer, além da execução dos testes unitários:
 
 1. **Execução completa** do aplicativo (backend e frontend, se aplicável)
-2. **Monitoramento ativo** por pelo menos 1 minuto
+2. **Verificação de Happy Path:** Executar pelo menos um fluxo principal completo com sucesso
 3. **Verificação de logs** e arquivos de estado para garantir ausência de erros silenciosos
 4. **Leitura das últimas 50 linhas** de `logs/last_run.log` (quando disponível) antes de declarar tarefa concluída
+5. **Para serviços contínuos** (daemons, bots): presença de pelo menos **3 heartbeats consecutivos** no log sem erros intermediários
+
+**Critério de suficiência:** O monitoramento é validado por **artefatos**, não por tempo arbitrário. A evidência é o log gerado com timestamp recente (< 5 minutos) demonstrando execução bem-sucedida.
 
 **Ao finalizar qualquer tarefa de codificação**, incluir seção:
 
@@ -52,10 +83,10 @@ Toda modificação de código requer, além da execução dos testes unitários:
 
 - [ ] Testes unitários passaram
 - [ ] Executou o código (backend e frontend)
-- [ ] Monitorou a execução por pelo menos 1 minuto
+- [ ] Happy path executado com sucesso (evidência em logs)
 - [ ] Verificou logs e arquivos de estado para garantir que não há erros silenciosos
 - [ ] Confirmou **ausência** de `FALLBACK_ACTIVATED` ou `data_consistency_risk: HIGH` nos logs
-- [ ] Scripts .bat testados (se modificados)
+- [ ] Scripts de execução testados (se modificados)
 ```
 
 > **Nota:** O checklist deve ser verificável por artefatos sempre que possível (logs gerados, outputs esperados), não apenas declarativo.
@@ -65,9 +96,11 @@ Toda modificação de código requer, além da execução dos testes unitários:
 - Sucesso é **binário** (se um teste falha, a tarefa falha)
 - Testes validam **comportamento e lógica de negócio**, não parâmetros hardcoded
 - Refatorações preservam testes enquanto a lógica permanecer a mesma
-- Funções puras do domínio têm **cobertura obrigatória**
+- Funções puras do domínio têm **cobertura obrigatória** — mínimo **80%** de cobertura de linha para `src/domain/`
+- Adapters e infraestrutura: cobertura **recomendada** mas não bloqueante
 - Testes seguem padrão **Given-When-Then** para clareza semântica
 - **Testes como âncora de contexto:** Ao gerar código, a IA deve priorizar leitura e alinhamento com testes existentes antes de criar novas implementações
+- **Enforcement:** `pytest --cov=src/domain --cov-fail-under=80` deve ser usado no CI/check_all
 
 ---
 
@@ -84,7 +117,9 @@ O sistema adota **Ports & Adapters** como padrão arquitetural inegociável:
 
 ### 5. Estrutura de Diretórios Canônica
 
-A estrutura de pastas segue convenção **rígida e previsível**. Novos módulos seguem o padrão existente. A IA não decide estrutura, **segue convenção**:
+A estrutura de pastas segue convenção **rígida e previsível**. Novos módulos seguem o padrão existente. A IA não decide estrutura, **segue convenção**.
+
+#### Estrutura Completa (≥ 30 arquivos em `src/`)
 
 ```
 src/
@@ -103,21 +138,42 @@ src/
 └── shared/           # Utilitários compartilhados (Result, tipos base)
 ```
 
-**Regras de importação (validadas por ferramentas):**
+#### Estrutura Mínima (< 30 arquivos em `src/`)
+
+Para projetos menores, a estrutura plana é aceitável contanto que mantenha a separação lógica:
+
+```
+src/
+├── domain/       # Regras de negócio + value objects (pode ser plano)
+├── ports/        # Todos os Protocols (sem subdivisão inbound/outbound)
+├── adapters/     # Todas as implementações (podem agrupar por feature)
+├── config/       # Composição
+└── shared/       # Utilitários
+```
+
+A subdivisão `inbound/outbound` de `ports/` e `adapters/` é obrigatória a partir de **5+ ports** OU **5+ adapters**.
+
+#### Regras de importação (validadas por `scripts/check_imports.py`)
+
 - `domain/` → não importa nada externo
 - `ports/` → importa apenas `domain/`
 - `adapters/` → importa `ports/` e `domain/`
 - `config/` → importa tudo (ponto de composição)
+- `shared/` → não importa `domain/`, `ports/`, `adapters/`, `config/`
 - **Importação circular é proibida.** Se A precisa de B e B precisa de A, extraia a interface para um Port ou mova a lógica comum para Domain.
+
+**Enforcement:** O script `scripts/check_imports.py` (portável, stdlib pura) valida estas regras via análise AST em cada execução de `check_all`. Se a estrutura hexagonal (`domain/`, `ports/`, etc.) ainda não existe no projeto, o script faz graceful skip.
 
 ### 6. Protocol-First Design
 
-Toda dependência externa (LLM, STT, TTS, storage, APIs) possui um **Protocol definido ANTES** de qualquer implementação:
+Toda dependência que **cruza a fronteira de I/O** (LLM, STT, TTS, storage, APIs, banco de dados) possui um **Protocol definido ANTES** de qualquer implementação:
 
 - O Protocol é o **contrato**; implementações são detalhes
 - Novos adapters são adicionados **sem modificar código existente**
 - O Agente Executor **não cria implementações sem Protocol prévio**
 - Protocols são **minimalistas**: métodos pequenos, sem defaults, sem comportamento implícito
+
+> **Escopo de aplicação:** Esta cláusula aplica-se exclusivamente a dependências externas de I/O. Para lógica interna de domínio, ver §20 (YAGNI). A reconciliação entre §6 e §20 é definida pela **Regra da Fronteira de I/O** (ver §20).
 
 ```python
 # ✅ Correto: métodos atômicos
@@ -137,14 +193,52 @@ class OrderRepository(Protocol):
 - Funções puras são a **unidade primária de teste**
 - **Complexidade ciclomática máxima: 7.** Condicionais aninhadas profundas devem ser extraídas em funções nomeadas (buscar < 5; acima de 10 requer revisão obrigatória)
 
+#### Exceção: Pipelines de Result
+
+Funções que são **pipelines lineares de Results** (sem branches condicionais além do pattern matching do Result) têm limite elevado para **CC ≤ 12**, desde que:
+- Cada branch seja exclusivamente check de `Success`/`Failure`
+- Não haja lógica condicional aninhada dentro dos branches
+- A função seja um pipeline linear (sem loops)
+
+**Preferência:** Adotar métodos de encadeamento (`.map()`, `.bind()`, `.and_then()`) para reduzir branches explícitos e manter CC baixa:
+
+```python
+# ✅ Preferido: pipeline encadeado (CC = 1)
+def process_order(cart: Cart, user: User) -> Result[Order, OrderError]:
+    return (
+        validate_cart(cart)
+        .and_then(calculate_pricing)
+        .and_then(check_inventory)
+        .and_then(lambda stock: create_order(stock, user))
+    )
+
+# ⚠️ Aceitável: checks explícitos em pipeline linear (CC ≤ 12)
+def process_order(cart: Cart, user: User) -> Result[Order, OrderError]:
+    validated = validate_cart(cart)
+    if isinstance(validated, Failure):
+        return validated
+    priced = calculate_pricing(validated.value)
+    if isinstance(priced, Failure):
+        return priced
+    return create_order(priced.value, user)
+```
+
 ### 8. Granularidade de Arquivos
 
 Cada arquivo `.py` exporta no máximo **uma classe pública** ou um conjunto coeso de funções relacionadas:
 
 - Arquivos com mais de **200 linhas** são candidatos a split (150-250 é aceitável se coeso)
+- Arquivos com mais de **300 linhas** são **violações** que bloqueiam `check_all`
 - A IA opera melhor com **unidades atômicas**
 - Um arquivo, uma responsabilidade exportável
 - **Critério de coesão:** se os testes sempre importam o mesmo conjunto de funções juntas, o arquivo está coeso
+- **Exceções:** `__init__.py` e `conftest.py` são excluídos da contagem
+
+**Enforcement:** O script `scripts/check_file_sizes.py` (portável, stdlib pura) emite:
+- `WARN` para arquivos >200 linhas (não-blank)
+- `ERROR` para arquivos >300 linhas (bloqueia `check_all`)
+
+Limites são configuráveis via `--warn` e `--error`.
 
 ```
 ❌ Ruim: services/user_service.py (500+ linhas)
@@ -172,7 +266,9 @@ class OrderItem:
 
 ### 10. Erros como Tipos de Domínio (Result Pattern)
 
-Erros de negócio são **Value Objects ou Enums tipados**, nunca exceções genéricas:
+Erros de negócio são **Value Objects tipados** que implementam o Protocol `DomainError` (§24), nunca exceções genéricas.
+
+> **Implementação de referência:** `scripts/shared/result.py` contém a implementação portável e canônica de `Success[T]`, `Failure[E]`, `Result`, `DomainError` Protocol, `collect_results()` e `try_result()`. Ao iniciar um novo projeto, copie `scripts/shared/result.py` para `src/shared/result.py`. **Não reimplemente** — use a versão fornecida.
 
 ```python
 @dataclass(frozen=True)
@@ -184,15 +280,33 @@ class Failure(Generic[E]):
     error: E
 
 Result = Union[Success[T], Failure[E]]
+```
+
+`Success` e `Failure` expõem métodos de encadeamento (`.map()`, `.and_then()`, `.map_error()`, `.unwrap()`, `.unwrap_or()`) que permitem pipelines lineares com CC = 1 (ver §7).
+
+Todo tipo `E` usado em `Result[T, E]` **deve** satisfazer o Protocol `DomainError` (§24), garantindo que erros sejam logáveis e mapeáveis automaticamente:
+
+```python
+@dataclass(frozen=True)
+class OrderCreationError:
+    """Satisfaz DomainError Protocol."""
+    code: str
+    message: str
+
+    @classmethod
+    def empty_cart(cls) -> "OrderCreationError":
+        return cls(code="ORDER_EMPTY_CART", message="Cannot create order from empty cart")
 
 # Uso
 def create_order(cart: Cart) -> Result[Order, OrderCreationError]:
     if not cart.items:
-        return Failure(OrderCreationError.EMPTY_CART)
+        return Failure(OrderCreationError.empty_cart())
     return Success(Order(...))
 ```
 
 O sistema de tipos **obriga** a tratar o erro. Fluxo previsível, sem surpresas.
+
+> **Hierarquia:** §10 define o padrão de fluxo (Result). §24 define o contrato semântico dos erros (DomainError). Todo `E` em `Failure[E]` satisfaz `DomainError`. Não há ambiguidade.
 
 ### 11. Validação Semântica e Normalização Tipada
 
@@ -220,6 +334,27 @@ Todo dado de entrada tem tipo **validado explicitamente** antes de uso no domín
 - O Agente Executor extrai todo parâmetro configurável para o ambiente
 - **`.env` e `.env.example` devem estar sempre sincronizados**: toda variável em `.env` deve existir em `.env.example` (com valor de exemplo) e vice-versa
 - Violações desta regra **invalidam a entrega**
+
+#### Validação de Configuração em Startup
+
+O ponto de entrada do aplicativo **deve** validar configuração antes de qualquer operação:
+
+1. Usar `pydantic.BaseSettings` (ou equivalente) com tipos explícitos
+2. Toda variável tem tipo, default (se opcional) e descrição
+3. Startup falha **imediatamente** se variável obrigatória está ausente
+4. Script `scripts/validate_env.py` (portável, fornecido em `scripts/`) gera `.env.example` a partir da classe Settings (**single source of truth**) e valida que `.env` contém todas as variáveis obrigatórias
+
+```bash
+# Gera .env.example e valida .env
+python scripts/validate_env.py
+
+# Apontar para outro arquivo de config
+python scripts/validate_env.py --config-file src/lib/config.py
+```
+
+O script usa análise AST (zero dependencies externas) para extrair campos de `BaseSettings`, incluindo `env_prefix` e defaults.
+
+> **Regra:** Sincronização manual entre `.env` e `.env.example` é substituída por geração automatizada. A classe `Settings` é a fonte canônica.
 
 ### 13. Injeção de Dependências Explícita
 
@@ -255,6 +390,20 @@ O Agente Executor recebe **contratos** (Protocols, interfaces, tipos) como entra
 
 **Exceção - Fase de Descoberta:** Para exploração de APIs externas novas, é permitido criar código "sujo" em `sandbox/` ou `explorations/`, marcado como descartável e **nunca integrado ao `src/`**. Este código serve apenas como especificação informal para criar o Protocol real.
 
+**Governança de Código Exploratório:**
+1. `sandbox/` é listado no `.gitignore` por padrão
+2. Código exploratório tem **prazo máximo de 5 dias úteis**, rastreado via comentário `# @exploration-deadline YYYY-MM-DD` (opcionalmente com `reason: descrição`) na primeira linha
+3. Script `scripts/check_explorations.py` (portável, fornecido em `scripts/`) falha se existem arquivos expirados em `sandbox/`
+4. **Promoção para `src/`** exige: Protocol criado, testes escritos, tutorial de extensibilidade (§16)
+5. Código exploratório que exceda o prazo sem promoção deve ser **deletado ou formalmente renovado** com justificativa
+
+```python
+# sandbox/test_new_api.py
+# @exploration-deadline 2025-03-15 reason: testando integração com API v3
+import requests
+...
+```
+
 ### 15. Glossário de Linguagem Ubíqua
 
 Um conceito possui **um único nome canônico** em todo o sistema:
@@ -262,7 +411,7 @@ Um conceito possui **um único nome canônico** em todo o sistema:
 - Não misturar `User`, `Customer`, `Account` para o mesmo conceito
 - Não misturar `Repository`, `Gateway`, `Storage` arbitrariamente
 - Manter arquivo `docs/glossary.md` com definições fechadas
-- **Alternativa:** Manter glossário como código em `src/shared/glossary.py` com constantes/Enums documentados
+- Para projetos com mais de 10 entidades de domínio, **adicionalmente** manter glossário como código em `src/shared/glossary.py` com constantes/Enums documentados que espelhem `docs/glossary.md`
 
 ### 16. Tutorial de Extensibilidade Obrigatório
 
@@ -307,31 +456,47 @@ A ausência desse tutorial caracteriza a funcionalidade como **arquiteturalmente
 
 ## VI. Execução e Acessibilidade
 
-### 17. Scripts de Execução (.bat) Obrigatórios
+### 17. Scripts de Execução Obrigatórios
 
-Todo projeto mantém uma pasta `scripts/` com arquivos `.bat` (Windows) para operações essenciais. O objetivo é **não obrigar o usuário a consultar README.md ou memorizar comandos**:
+Todo projeto mantém uma pasta `scripts/` com scripts de execução para operações essenciais. O objetivo é **não obrigar o usuário a consultar README.md ou memorizar comandos**.
+
+#### Estratégia Dual: Cross-Platform com Conveniência Nativa
+
+- **Primário:** Entry points Python via `pyproject.toml` ou módulo `scripts/` (cross-platform por natureza)
+- **Conveniência Windows:** Scripts `.bat` que chamam os entry points Python
+- **Conveniência Unix/CI:** Scripts `.sh` equivalentes (ou `Makefile`)
+
+**Critério mínimo:** O usuário deve conseguir executar qualquer operação essencial com **um único comando**, independente do SO.
 
 ```
 scripts/
-├── run.bat              # Executa o aplicativo principal
-├── run_dev.bat          # Executa em modo desenvolvimento
-├── run_tests.bat        # Executa todos os testes
-├── run_mypy.bat         # Valida tipos
-├── install.bat          # Instala dependências
-├── setup_env.bat        # Configura ambiente virtual
-├── check_all.bat        # Roda mypy + pytest + lint de uma vez
-└── [feature]_*.bat      # Variações por funcionalidade
+├── check_all.py               # Orquestrador: mypy → pytest → todos os checks (ver §1)
+├── check_all.bat / check_all.sh  # Wrappers nativos para check_all.py
+├── check_imports.py           # Valida regras de importação hexagonal (ver §5)
+├── check_file_sizes.py        # Valida limite de linhas por arquivo (ver §8)
+├── generate_map.py            # Gera docs/map.md a partir de docstrings (ver §23)
+├── validate_env.py            # Gera .env.example e valida .env (ver §12)
+├── check_explorations.py      # Verifica prazos em sandbox/ (ver §14)
+├── shared/
+│   └── result.py              # Result[T,E], Success, Failure, DomainError (ver §10/§24)
+├── run.bat / run.sh           # Executa o aplicativo principal
+├── run_dev.bat / run_dev.sh   # Executa em modo desenvolvimento
+├── run_tests.bat / run_tests.sh   # Executa todos os testes
+├── install.bat / install.sh   # Instala dependências
+└── [feature]_*.bat/.sh        # Variações por funcionalidade
 ```
 
-**Regras:**
-- Scripts .bat são a **porta de entrada** ao software desenvolvido
-- Qualquer adição de funcionalidade que couber novos .bat com variações de inicialização deve criá-los
-- Mudanças estruturais que precisem ajustar os .bat atuais **devem atualizá-los**
-- **Todos os .bat devem ser testados** após qualquer modificação
-- Scripts devem ser **autoexplicativos** (incluir `echo` descrevendo o que fazem)
-- **Encoding UTF-8 e line endings consistentes** (preferir LF; CRLF apenas se necessário para Windows)
+> **Kit Portável:** Os scripts `check_all.py`, `check_imports.py`, `check_file_sizes.py`, `generate_map.py`, `validate_env.py`, `check_explorations.py` e `shared/result.py` são **portáveis entre projetos**. São zero-dependency (stdlib pura) e acompanham as cláusulas pétreas como enforcement automatizado. Ao iniciar um novo projeto, copie a pasta `scripts/` inteira junto com este documento.
 
-**Documentação mínima de cada .bat:**
+**Regras:**
+- Scripts são a **porta de entrada** ao software desenvolvido
+- Qualquer adição de funcionalidade que couber novos scripts com variações de inicialização deve criá-los
+- Mudanças estruturais que precisem ajustar os scripts atuais **devem atualizá-los**
+- **Todos os scripts devem ser testados** após qualquer modificação
+- Scripts devem ser **autoexplicativos** (incluir `echo`/`print` descrevendo o que fazem)
+- **Encoding UTF-8 e line endings consistentes** (LF para `.sh`; CRLF para `.bat`)
+
+**Documentação mínima de cada script:**
 ```batch
 @echo off
 REM ================================================
@@ -361,28 +526,52 @@ Portanto:
 
 ### 19. Fluxo de Geração Determinístico
 
-Ao implementar funcionalidades, seguir ordem estrita:
+Ao implementar funcionalidades, seguir ordem estrita. O fluxo é **proporcional ao tipo de mudança**:
+
+#### Classificação de Mudanças
+
+| Tipo           | Critério                                                  | Passos Obrigatórios        |
+| -------------- | --------------------------------------------------------- | -------------------------- |
+| **Trivial**    | Config, typos, constantes, ajustes de `.env`              | 6 + 10                     |
+| **Menor**      | Lógica em ≤ 2 arquivos, sem mudança de contrato           | 3–6 + 10                   |
+| **Maior**      | Novo feature, novo adapter, novo Port                     | Todos (0–10)               |
+| **Estrutural** | Mudança de Protocol, migração, refatoração de arquitetura | Todos + Impact Graph (§26) |
+
+#### Fluxo Completo (para mudanças Maiores e Estruturais)
 
 0. **Planejamento:** Emitir plano de execução listando arquivos a criar/modificar e como respeitam as cláusulas pétreas
 0.5. **Análise de Impacto (Impact Graph):** Antes de qualquer código, listar TODOS os arquivos que importam os módulos afetados e classificar impacto: `[QUEBRA CONTRATO]` ou `[INTERNO]` (ver Cláusula 26)
 1. Verificar **glossário** para garantir consistência de termos
-2. Identificar/criar **Protocol** (Port) necessário
+2. Identificar/criar **Protocol** (Port) necessário (respeitando Regra da Fronteira de I/O, §20)
 3. Criar **testes** baseados no contrato (que falham inicialmente)
 4. Implementar **lógica de domínio** (funções puras)
 5. Implementar **Adapter** se necessário
 6. Validar com **mypy** e **pytest**
 7. Atualizar **container.py** se nova dependência
 8. Criar/atualizar **tutorial de extensibilidade**
-9. Atualizar **scripts .bat** se aplicável
-10. **Executar e monitorar** aplicação completa
+9. Atualizar **scripts de execução** se aplicável
+10. **Executar e monitorar** aplicação completa (ver §2)
+
+> **Regra de proporcionalidade:** Para mudanças Triviais, executar apenas validação (passo 6) e monitoramento (passo 10). Para mudanças Menores, começar nos testes (passo 3). A classificação errada para baixo (tratar Maior como Menor) é uma violação; para cima (tratar Trivial como Maior) é apenas ineficiência.
 
 ### 20. YAGNI Rigoroso (Proibição de Abstrações Prematuras)
 
 - **Não criar** interfaces/Protocols "apenas porque pode precisar no futuro"
-- Protocol só é criado quando existe ou está sendo implementado **imediatamente** um adapter
 - **Proibido** criar "base classes", "abstract services" ou "helpers genéricos" sem uso concreto atual
-- Quando em dúvida: implemente primeiro como função concreta, extraia Protocol só na segunda implementação
 - A IA tende a over-engineer; esta cláusula força simplicidade
+
+#### Regra da Fronteira de I/O (Reconciliação §4/§6 vs §20)
+
+O conflito entre "Protocol para tudo" (§4/§6) e "só na segunda implementação" é resolvido por um critério determinístico:
+
+| Tipo de componente                                                       | Quando criar Protocol                        | Cláusula prevalente |
+| ------------------------------------------------------------------------ | -------------------------------------------- | ------------------- |
+| **Dependência externa de I/O** (LLM, storage, API, DB, serviços de rede) | Desde a **primeira** implementação           | §4/§6 prevalece     |
+| **Lógica interna de domínio** (cálculos, transformações, validações)     | Apenas na **segunda** implementação concreta | §20 prevalece       |
+
+**Critério decisivo:** Se o componente **faz I/O ou depende de infraestrutura externa**, Protocol é obrigatório desde o início (o custo de desacoplar uma dependência externa rígida depois é maior que o custo da abstração). Se é **lógica pura**, comece com função concreta e extraia Protocol só quando surgir variação real de comportamento.
+
+> **Teste mental:** "Se eu precisar trocar este componente por uma implementação fake em testes, eu precisaria de mock/patch?" Se sim → Protocol obrigatório. Se basta chamar a função com argumentos diferentes → YAGNI prevalece.
 
 ### 21. Convenções Determinísticas de Nomenclatura
 
@@ -394,6 +583,10 @@ Para eliminar ambiguidade e facilitar navegação:
 - **Use Cases:** `[Verbo][Entidade]UseCase` com método único `execute()` (ex: `CreateOrderUseCase`)
 - **Value Objects:** substantivos adjetivados (ex: `EmailAddress`, `PositiveInteger`)
 - **Erros:** `[Domain][ErrorType]Error` (ex: `UserNotFoundError`, `PaymentFailedError`)
+- **`__init__.py`:** Apenas re-exportações públicas — proibido lógica, proibido import circular
+- **Configuração:** `config.py` na raiz do pacote ou em `src/config/` — nunca espalhada em múltiplos módulos
+- **Testes:** `test_[módulo].py` espelhando a estrutura de `src/` (ex: `tests/unit/test_create_user.py` testa `src/domain/services/create_user.py`)
+- **Fixtures:** em `conftest.py` do diretório de testes relevante — nunca em arquivos de teste individuais
 
 ### 22. Proibição de Magia e Metaprogramação
 
@@ -408,55 +601,98 @@ LLMs quebram completamente com lógica implícita invisível. É **terminantemen
 
 **Regra:** Se o comportamento não é óbvio lendo o código linha a linha, está proibido.
 
-### 23. Mapa de Contexto do Projeto
+### 23. Mapa de Contexto do Projeto (Automatizado)
 
-Para projetos com mais de 20 arquivos, manter um **mapa de navegação** atualizado:
+Para projetos com mais de 20 arquivos, manter um **mapa de navegação** atualizado em `docs/map.md`:
 
-- Arquivo `docs/map.md` descrevendo árvore de arquivos e responsabilidade resumida de cada módulo
-- Toda criação/deleção de arquivo deve atualizar o mapa
 - O mapa serve como "GPS" para a IA em cada novo prompt
+- O mapa é **gerado automaticamente** por `scripts/generate_map.py` (portável, fornecido em `scripts/`), **nunca mantido manualmente**
 
-**Formato sugerido:**
-```markdown
-## Mapa do Projeto
+#### Mecanismo de Geração
 
-### src/domain/
-- `entities/user.py` - Entidade User com validações de domínio
-- `services/create_user.py` - Lógica pura de criação de usuário
+1. Script `scripts/generate_map.py` percorre `src/` e gera `docs/map.md` a partir da **docstring de módulo** (primeira linha de cada `.py`)
+2. Para cada arquivo, exibe: caminho, contagem de linhas e primeira linha da docstring
+3. Arquivos sem docstring são marcados com ⚠️ no mapa gerado
+4. O script é executado automaticamente como parte de `scripts/check_all.py`
+5. Hook de pre-commit pode regenerar o mapa opcionalmente
 
-### src/adapters/outbound/
-- `postgres_user_adapter.py` - Persistência de User em PostgreSQL
+```bash
+# Gerar mapa
+python scripts/generate_map.py
+
+# Apontar para outro diretório ou output
+python scripts/generate_map.py --src-dir src --output docs/map.md
 ```
 
-### 24. Erros com Semântica Formal
+> **Princípio:** "Ferramentas são a lei" (§1). Manutenção manual de mapa contradiz este princípio e é portanto proibida.
 
-Além de tipados, erros de domínio devem seguir um contrato semântico mínimo:
+**Formato gerado:**
+```markdown
+# Mapa de Módulos
+> Gerado automaticamente em YYYY-MM-DD HH:MM UTC por scripts/generate_map.py
+
+## domain/
+| Módulo                    | Linhas | Descrição                               |
+| ------------------------- | ------ | --------------------------------------- |
+| `entities/user.py`        | 85     | Entidade User com validações de domínio |
+| `services/create_user.py` | 42     | Lógica pura de criação de usuário       |
+```
+
+### 24. Erros com Semântica Formal (Contrato Unificado)
+
+Todo erro de domínio segue um **contrato semântico único**, unificado com o Result Pattern (§10):
 
 ```python
+@runtime_checkable
 class DomainError(Protocol):
     @property
     def code(self) -> str: ...
     @property
     def message(self) -> str: ...
+    @property
+    def context(self) -> dict[str, Any]:
+        """Contexto estruturado opcional para logging/telemetria."""
+        return {}
 ```
 
+> **Implementação de referência:** A definição canônica do Protocol `DomainError` está em `scripts/shared/result.py`, junto com `Success`, `Failure` e `Result`. Use `@runtime_checkable` para permitir verificação com `isinstance()` em adapters de apresentação.
+
+**Hierarquia definitiva:**
+- §10 define o **padrão de fluxo** (`Result[T, E]` com `Success`/`Failure`)
+- §24 define o **contrato semântico** que todo `E` em `Failure[E]` deve satisfazer
+- Todo tipo usado como `E` em `Result[T, E]` **deve** implementar `DomainError`
+- Enums sem `code`/`message` são **proibidos** como tipo de erro em Results
+
 Isso permite:
-- Logs automáticos padronizados
+- Logs automáticos padronizados (todo erro tem `code` e `message` acessíveis)
 - Mapeamento determinístico para HTTP status codes ou respostas CLI
 - Menos if/else em adapters de apresentação
+- **Zero ambiguidade** na implementação de erros
+- `context` para telemetria estruturada sem poluir `message`
 
 ---
 
 ## VIII. Integridade em Transições e Migrações
 
-### 25. Integridade Radical em Transições (Strict Mode)
+### 25. Integridade Radical em Transições (Fail-Fast Auditável)
 
 Durante refatorações estruturais ou migrações (ex: troca de banco, mudança de API), a integridade dos dados tem **prioridade absoluta** sobre a disponibilidade.
 
 - **Modo Estrito:** O sistema deve suportar uma flag `STRICT_ARCHITECTURE_MODE=true` (via `.env`). Quando ativa:
-  - Falhas em sistemas secundários (ex: dual-write) disparam **exceções bloqueantes** (crash), nunca warnings
+  - Falhas em sistemas secundários (ex: dual-write) disparam `ArchitectureViolationError`, nunca warnings
   - Discrepâncias de contrato interrompem a execução
 - **Proibição de Degradação Silenciosa:** É proibido capturar exceções críticas e logar apenas como `WARNING` sem interromper o fluxo, a menos que explicitamente documentado como estratégia de resiliência em produção estável
+
+#### Protocolo de Crash Controlado
+
+O `STRICT_ARCHITECTURE_MODE` não significa "crash e morra". Significa **crash controlado** com auditoria:
+
+1. **Antes do crash:** Persistir estado da operação em andamento em `logs/fatal_violation.json` com contexto completo (Impact Graph da operação, dados parciais, timestamp)
+2. **Notificação:** Emitir log `ERROR` + mecanismo de notificação configurado em `.env` (`ALERT_WEBHOOK_URL`)
+3. **Idempotência:** Toda operação de escrita deve ser idempotente, permitindo replay seguro após crash
+4. **Rollback em dual-write:** Se a falha ocorrer durante um dual-write ou migração, o sistema deve reverter a operação no sistema primário antes de encerrar
+5. **Circuit Breaker:** Após N falhas consecutivas em sistema secundário (configurável via `STRICT_MODE_MAX_FAILURES` em `.env`), o sistema entra em modo "manutenção" (rejeita novas operações) em vez de crashar repetidamente
+
 - **Logs de Pânico:** Se um fallback for inevitável, deve ser logado com nível `ERROR` e metadados obrigatórios:
 
 ```python
@@ -469,6 +705,7 @@ logger.error(
         "risk": "DATA_CONSISTENCY",
         "action": "FALLBACK_TRIGGERED",
         "original_error": str(exception),
+        "crash_state_file": "logs/fatal_violation.json",  # Obrigatório
     },
 )
 ```
@@ -546,7 +783,7 @@ def test_save_and_retrieve(storage: StoragePort) -> None:
 | Testes como âncora              | IA aprende por exemplo           |
 | Composition Root                | Ponto único de mudança           |
 | Imutabilidade                   | Menos estados para rastrear      |
-| Scripts .bat                    | Execução sem fricção             |
+| Scripts cross-platform          | Execução sem fricção             |
 | Verificação pós-código          | Bugs detectados em runtime       |
 | YAGNI rigoroso                  | Evita over-engineering           |
 | Nomenclatura determinística     | Zero ambiguidade                 |
@@ -554,7 +791,7 @@ def test_save_and_retrieve(storage: StoragePort) -> None:
 | Proibição de magia              | Comportamento sempre explícito   |
 | Mapa de contexto                | IA navega sem "descobrir"        |
 | .env sincronizado               | Configuração sempre completa     |
-| Strict Mode em transições       | Falhas nunca são silenciosas     |
+| Fail-Fast Auditável             | Falhas nunca são silenciosas     |
 | Impact Graph obrigatório        | Migrações sem efeitos colaterais |
 | DoD para migrações              | Equivalência comprovada          |
 
@@ -570,6 +807,38 @@ Os seguintes arquivos são **referência**, não devem ser modificados pela IA s
 - `docs/map.md`
 
 Estes servem como **âncoras cognitivas** para manter consistência ao longo do tempo.
+
+---
+
+## Kit Portável de Enforcement
+
+As cláusulas pétreas acompanham um **kit de scripts portáveis** que implementam o enforcement automatizado prescrito. Ao iniciar um novo projeto, copie:
+
+1. **Este arquivo** (`prompts/unalterable_clauses.md`) como referência arquitetural
+2. **A pasta `scripts/`** com todos os scripts de enforcement
+
+```
+scripts/
+├── check_all.py              # Orquestrador (§1) — mypy → pytest → todos os checks
+├── check_all.bat             # Wrapper Windows
+├── check_all.sh              # Wrapper Unix
+├── check_imports.py          # Validação de fronteiras hexagonais (§5)
+├── check_file_sizes.py       # Validação de limite de linhas (§8)
+├── generate_map.py           # Geração de docs/map.md (§23)
+├── validate_env.py           # Geração de .env.example e validação (§12)
+├── check_explorations.py     # Governança de sandbox/ (§14)
+└── shared/
+    └── result.py             # Result[T,E], DomainError Protocol (§10/§24)
+```
+
+**Características do kit:**
+- **Zero dependencies externas** — todos usam apenas stdlib Python (exceto `validate_env.py` que requer `pydantic-settings` no projeto alvo)
+- **Graceful skip** — scripts que dependem de estrutura hexagonal (`domain/`, `ports/`) fazem skip silencioso se a estrutura não existe ainda
+- **Cross-platform** — Python puro, funciona em Windows, Linux e macOS
+- **Configuráveis** — todos aceitam `--src-dir` e parâmetros relevantes via CLI
+- `shared/result.py` deve ser copiado para `src/shared/result.py` no projeto alvo como implementação canônica do Result Pattern
+
+> **Regra:** Os scripts são a materialização das cláusulas. Sem eles, as cláusulas são apenas texto — com eles, são **enforcement real**.
 
 ---
 
