@@ -59,7 +59,7 @@ class LogEvent(TypedDict):
     context: str        # Módulo/função origem
     error_code: str | None
     message: str
-    # Campos obrigatórios para rastreio de consistência (ver Cláusula 25)
+    # Campos obrigatórios para rastreio de consistência (ver Cláusula 26)
     fallback_activated: bool | None
     data_consistency_risk: Literal["NONE", "LOW", "HIGH"] | None
 ```
@@ -81,6 +81,7 @@ Toda modificação de código requer, além da execução dos testes unitários:
 ```markdown
 ## ✅ Checklist de Verificação
 
+- [ ] Ciclo TDD respeitado para lógica de domínio/ports (§3)
 - [ ] Testes unitários passaram
 - [ ] Executou o código (backend e frontend)
 - [ ] Happy path executado com sucesso (evidência em logs)
@@ -91,7 +92,56 @@ Toda modificação de código requer, além da execução dos testes unitários:
 
 > **Nota:** O checklist deve ser verificável por artefatos sempre que possível (logs gerados, outputs esperados), não apenas declarativo.
 
-### 3. Integridade de Testes
+### 3. Test-Driven Development (TDD) Obrigatório
+
+O ciclo **Red-Green-Refactor** é o processo padrão de desenvolvimento. Testes são a **especificação executável** — código de produção só existe para fazer testes passarem.
+
+1. **Red:** Escrever um teste que falha, baseado no contrato ou requisito
+2. **Green:** Implementar o **mínimo de código** necessário para o teste passar
+3. **Refactor:** Melhorar a estrutura do código sem alterar comportamento (testes continuam verdes)
+
+#### Escopo de Aplicação
+
+| Tipo de código                                                           | TDD obrigatório?             | Justificativa                                                               |
+| ------------------------------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------- |
+| **Lógica de domínio** (funções puras, services, entities, value objects) | **Sim**                      | Contexto determinístico, alta testabilidade                                 |
+| **Ports (Protocols)**                                                    | **Sim** (testes de contrato) | Define o comportamento esperado antes da implementação                      |
+| **Adapters**                                                             | Recomendado                  | I/O dificulta TDD puro; testes de integração são aceitos após implementação |
+| **Config/Composição**                                                    | Não                          | Código de cola, validado indiretamente                                      |
+| **Scripts utilitários**                                                  | Não                          | Ferramentas de suporte, não lógica de negócio                               |
+
+#### Regras do Ciclo
+
+- **Proibido escrever código de produção sem teste falhando** para lógica de domínio e ports
+- Cada ciclo Red-Green-Refactor deve ser **atômico**: não acumular múltiplos testes vermelhos antes de implementar
+- O teste deve falhar **pelo motivo correto** (validar que o teste testa o que deveria testar)
+- Na fase Green, implementar a solução **mais simples possível** — complexidade é adicionada apenas quando novos testes a exigirem (alinhamento natural com §21/YAGNI)
+- Refactoring é feito **exclusivamente com testes verdes** — nunca refatorar com testes falhando
+- **Baby steps:** preferir incrementos pequenos e verificáveis a grandes saltos de implementação
+
+#### Integração com Fluxo de Geração (§20)
+
+O passo 3 do fluxo de geração determinístico ("Criar testes baseados no contrato") é explicitamente um ciclo TDD:
+
+1. Escrever testes que definem o comportamento esperado do contrato (Red)
+2. Implementar a lógica de domínio incrementalmente (Green — passo 4 do fluxo)
+3. Refatorar mantendo testes verdes (Refactor)
+4. Repetir até que todos os requisitos do contrato estejam cobertos
+
+#### Exceções Documentadas
+
+TDD pode ser relaxado nas seguintes situações, **desde que documentado com justificativa**:
+
+- **Código exploratório** em `sandbox/` (§15) — por definição descartável
+- **Adapters de I/O puro** (ex: wrapper mínimo de SDK) — testar via integração após implementação
+- **Bug fixes emergenciais** — permitido escrever o fix primeiro, mas o teste correspondente deve ser adicionado **antes do merge/commit**
+- **Prototipagem de UI** — quando o feedback visual é o "teste"
+
+> **Regra:** Se o código está em `src/domain/` ou `src/ports/`, TDD é **inegociável**. O teste é a especificação executável — código sem teste falhando anterior não é implementação, é rascunho.
+
+### 4. Integridade de Testes
+
+O processo de criação de testes segue o ciclo TDD obrigatório (§3). Além da metodologia, as seguintes regras de integridade se aplicam:
 
 - Sucesso é **binário** (se um teste falha, a tarefa falha)
 - Testes validam **comportamento e lógica de negócio**, não parâmetros hardcoded
@@ -106,7 +156,7 @@ Toda modificação de código requer, além da execução dos testes unitários:
 
 ## II. Arquitetura e Estrutura
 
-### 4. Arquitetura Hexagonal Obrigatória
+### 5. Arquitetura Hexagonal Obrigatória
 
 O sistema adota **Ports & Adapters** como padrão arquitetural inegociável:
 
@@ -115,7 +165,7 @@ O sistema adota **Ports & Adapters** como padrão arquitetural inegociável:
 - **Adapters** implementam os Ports e são substituíveis sem afetar o domínio
 - Nenhum código de domínio importa diretamente implementações concretas de I/O, persistência ou serviços externos
 
-### 5. Estrutura de Diretórios Canônica
+### 6. Estrutura de Diretórios Canônica
 
 A estrutura de pastas segue convenção **rígida e previsível**. Novos módulos seguem o padrão existente. A IA não decide estrutura, **segue convenção**.
 
@@ -164,7 +214,7 @@ A subdivisão `inbound/outbound` de `ports/` e `adapters/` é obrigatória a par
 
 **Enforcement:** O script `scripts/check_imports.py` (portável, stdlib pura) valida estas regras via análise AST em cada execução de `check_all`. Se a estrutura hexagonal (`domain/`, `ports/`, etc.) ainda não existe no projeto, o script faz graceful skip.
 
-### 6. Protocol-First Design
+### 7. Protocol-First Design
 
 Toda dependência que **cruza a fronteira de I/O** (LLM, STT, TTS, storage, APIs, banco de dados) possui um **Protocol definido ANTES** de qualquer implementação:
 
@@ -173,7 +223,7 @@ Toda dependência que **cruza a fronteira de I/O** (LLM, STT, TTS, storage, APIs
 - O Agente Executor **não cria implementações sem Protocol prévio**
 - Protocols são **minimalistas**: métodos pequenos, sem defaults, sem comportamento implícito
 
-> **Escopo de aplicação:** Esta cláusula aplica-se exclusivamente a dependências externas de I/O. Para lógica interna de domínio, ver §20 (YAGNI). A reconciliação entre §6 e §20 é definida pela **Regra da Fronteira de I/O** (ver §20).
+> **Escopo de aplicação:** Esta cláusula aplica-se exclusivamente a dependências externas de I/O. Para lógica interna de domínio, ver §21 (YAGNI). A reconciliação entre §7 e §21 é definida pela **Regra da Fronteira de I/O** (ver §21).
 
 ```python
 # ✅ Correto: métodos atômicos
@@ -186,7 +236,7 @@ class OrderRepository(Protocol):
     def save(self, order: Order, upsert: bool = True) -> None: ...
 ```
 
-### 7. Functional Core, Imperative Shell
+### 8. Functional Core, Imperative Shell
 
 - Lógica de domínio é implementada como **funções puras** sempre que possível (mesma entrada produz mesma saída, sem side effects)
 - I/O e side effects são **isolados na camada de adapters** (shell imperativo)
@@ -223,7 +273,7 @@ def process_order(cart: Cart, user: User) -> Result[Order, OrderError]:
     return create_order(priced.value, user)
 ```
 
-### 8. Granularidade de Arquivos
+### 9. Granularidade de Arquivos
 
 Cada arquivo `.py` exporta no máximo **uma classe pública** ou um conjunto coeso de funções relacionadas:
 
@@ -250,7 +300,7 @@ Limites são configuráveis via `--warn` e `--error`.
 
 ## III. Tipos, Dados e Validação
 
-### 9. Imutabilidade por Padrão
+### 10. Imutabilidade por Padrão
 
 - Objetos de domínio são **imutáveis** (`frozen=True` em dataclasses)
 - Mutação ocorre apenas em adapters de estado (repositories)
@@ -264,9 +314,9 @@ class OrderItem:
     price: Decimal
 ```
 
-### 10. Erros como Tipos de Domínio (Result Pattern)
+### 11. Erros como Tipos de Domínio (Result Pattern)
 
-Erros de negócio são **Value Objects tipados** que implementam o Protocol `DomainError` (§24), nunca exceções genéricas.
+Erros de negócio são **Value Objects tipados** que implementam o Protocol `DomainError` (§25), nunca exceções genéricas.
 
 > **Implementação de referência:** `scripts/shared/result.py` contém a implementação portável e canônica de `Success[T]`, `Failure[E]`, `Result`, `DomainError` Protocol, `collect_results()` e `try_result()`. Ao iniciar um novo projeto, copie `scripts/shared/result.py` para `src/shared/result.py`. **Não reimplemente** — use a versão fornecida.
 
@@ -282,9 +332,9 @@ class Failure(Generic[E]):
 Result = Union[Success[T], Failure[E]]
 ```
 
-`Success` e `Failure` expõem métodos de encadeamento (`.map()`, `.and_then()`, `.map_error()`, `.unwrap()`, `.unwrap_or()`) que permitem pipelines lineares com CC = 1 (ver §7).
+`Success` e `Failure` expõem métodos de encadeamento (`.map()`, `.and_then()`, `.map_error()`, `.unwrap()`, `.unwrap_or()`) que permitem pipelines lineares com CC = 1 (ver §8).
 
-Todo tipo `E` usado em `Result[T, E]` **deve** satisfazer o Protocol `DomainError` (§24), garantindo que erros sejam logáveis e mapeáveis automaticamente:
+Todo tipo `E` usado em `Result[T, E]` **deve** satisfazer o Protocol `DomainError` (§25), garantindo que erros sejam logáveis e mapeáveis automaticamente:
 
 ```python
 @dataclass(frozen=True)
@@ -306,9 +356,9 @@ def create_order(cart: Cart) -> Result[Order, OrderCreationError]:
 
 O sistema de tipos **obriga** a tratar o erro. Fluxo previsível, sem surpresas.
 
-> **Hierarquia:** §10 define o padrão de fluxo (Result). §24 define o contrato semântico dos erros (DomainError). Todo `E` em `Failure[E]` satisfaz `DomainError`. Não há ambiguidade.
+> **Hierarquia:** §11 define o padrão de fluxo (Result). §25 define o contrato semântico dos erros (DomainError). Todo `E` em `Failure[E]` satisfaz `DomainError`. Não há ambiguidade.
 
-### 11. Validação Semântica e Normalização Tipada
+### 12. Validação Semântica e Normalização Tipada
 
 Todo dado de entrada tem tipo **validado explicitamente** antes de uso no domínio:
 
@@ -326,7 +376,7 @@ Todo dado de entrada tem tipo **validado explicitamente** antes de uso no domín
 
 ## IV. Configuração e Dependências
 
-### 12. Configuração Externa e Zero Hardcoding
+### 13. Configuração Externa e Zero Hardcoding
 
 É **terminantemente proibido** o uso de valores literais ou parâmetros hardcoded no código:
 
@@ -356,7 +406,7 @@ O script usa análise AST (zero dependencies externas) para extrair campos de `B
 
 > **Regra:** Sincronização manual entre `.env` e `.env.example` é substituída por geração automatizada. A classe `Settings` é a fonte canônica.
 
-### 13. Injeção de Dependências Explícita
+### 14. Injeção de Dependências Explícita
 
 - Componentes recebem suas dependências via **construtor ou parâmetro**, nunca instanciam internamente
 - Isso garante testabilidade e substituição de implementações
@@ -380,7 +430,7 @@ def create_production_container(settings: Settings) -> Container:
 
 ## V. Contratos e Documentação
 
-### 14. Contratos Antes de Comportamento
+### 15. Contratos Antes de Comportamento
 
 O Agente Executor recebe **contratos** (Protocols, interfaces, tipos) como entrada primária:
 
@@ -394,7 +444,7 @@ O Agente Executor recebe **contratos** (Protocols, interfaces, tipos) como entra
 1. `sandbox/` é listado no `.gitignore` por padrão
 2. Código exploratório tem **prazo máximo de 5 dias úteis**, rastreado via comentário `# @exploration-deadline YYYY-MM-DD` (opcionalmente com `reason: descrição`) na primeira linha
 3. Script `scripts/check_explorations.py` (portável, fornecido em `scripts/`) falha se existem arquivos expirados em `sandbox/`
-4. **Promoção para `src/`** exige: Protocol criado, testes escritos, tutorial de extensibilidade (§16)
+4. **Promoção para `src/`** exige: Protocol criado, testes escritos, tutorial de extensibilidade (§17)
 5. Código exploratório que exceda o prazo sem promoção deve ser **deletado ou formalmente renovado** com justificativa
 
 ```python
@@ -404,7 +454,7 @@ import requests
 ...
 ```
 
-### 15. Glossário de Linguagem Ubíqua
+### 16. Glossário de Linguagem Ubíqua
 
 Um conceito possui **um único nome canônico** em todo o sistema:
 
@@ -413,7 +463,7 @@ Um conceito possui **um único nome canônico** em todo o sistema:
 - Manter arquivo `docs/glossary.md` com definições fechadas
 - Para projetos com mais de 10 entidades de domínio, **adicionalmente** manter glossário como código em `src/shared/glossary.py` com constantes/Enums documentados que espelhem `docs/glossary.md`
 
-### 16. Tutorial de Extensibilidade Obrigatório
+### 17. Tutorial de Extensibilidade Obrigatório
 
 Toda funcionalidade nova ou modificada que introduza comportamento configurável, heurístico ou passível de personalização futura acompanha um **tutorial técnico explícito** documentando:
 
@@ -456,7 +506,7 @@ A ausência desse tutorial caracteriza a funcionalidade como **arquiteturalmente
 
 ## VI. Execução e Acessibilidade
 
-### 17. Scripts de Execução Obrigatórios
+### 18. Scripts de Execução Obrigatórios
 
 Todo projeto mantém uma pasta `scripts/` com scripts de execução para operações essenciais. O objetivo é **não obrigar o usuário a consultar README.md ou memorizar comandos**.
 
@@ -472,13 +522,13 @@ Todo projeto mantém uma pasta `scripts/` com scripts de execução para operaç
 scripts/
 ├── check_all.py               # Orquestrador: mypy → pytest → todos os checks (ver §1)
 ├── check_all.bat / check_all.sh  # Wrappers nativos para check_all.py
-├── check_imports.py           # Valida regras de importação hexagonal (ver §5)
-├── check_file_sizes.py        # Valida limite de linhas por arquivo (ver §8)
-├── generate_map.py            # Gera docs/map.md a partir de docstrings (ver §23)
-├── validate_env.py            # Gera .env.example e valida .env (ver §12)
-├── check_explorations.py      # Verifica prazos em sandbox/ (ver §14)
+├── check_imports.py           # Valida regras de importação hexagonal (ver §6)
+├── check_file_sizes.py        # Valida limite de linhas por arquivo (ver §9)
+├── generate_map.py            # Gera docs/map.md a partir de docstrings (ver §24)
+├── validate_env.py            # Gera .env.example e valida .env (ver §13)
+├── check_explorations.py      # Verifica prazos em sandbox/ (ver §15)
 ├── shared/
-│   └── result.py              # Result[T,E], Success, Failure, DomainError (ver §10/§24)
+│   └── result.py              # Result[T,E], Success, Failure, DomainError (ver §11/§25)
 ├── run.bat / run.sh           # Executa o aplicativo principal
 ├── run_dev.bat / run_dev.sh   # Executa em modo desenvolvimento
 ├── run_tests.bat / run_tests.sh   # Executa todos os testes
@@ -510,7 +560,7 @@ REM ================================================
 
 ## VII. Autoconhecimento e Limitações da IA
 
-### 18. Reconhecimento de Limitações do Agente Executor
+### 19. Reconhecimento de Limitações do Agente Executor
 
 O Agente Executor (IA) reconhece que:
 
@@ -524,7 +574,7 @@ Portanto:
 - **Validação é por ferramentas** (IA não revisa próprio código)
 - **Prompts devem ser determinísticos** com contratos explícitos (IA não debate, executa)
 
-### 19. Fluxo de Geração Determinístico
+### 20. Fluxo de Geração Determinístico
 
 Ao implementar funcionalidades, seguir ordem estrita. O fluxo é **proporcional ao tipo de mudança**:
 
@@ -535,16 +585,16 @@ Ao implementar funcionalidades, seguir ordem estrita. O fluxo é **proporcional 
 | **Trivial**    | Config, typos, constantes, ajustes de `.env`              | 6 + 10                     |
 | **Menor**      | Lógica em ≤ 2 arquivos, sem mudança de contrato           | 3–6 + 10                   |
 | **Maior**      | Novo feature, novo adapter, novo Port                     | Todos (0–10)               |
-| **Estrutural** | Mudança de Protocol, migração, refatoração de arquitetura | Todos + Impact Graph (§26) |
+| **Estrutural** | Mudança de Protocol, migração, refatoração de arquitetura | Todos + Impact Graph (§27) |
 
 #### Fluxo Completo (para mudanças Maiores e Estruturais)
 
 0. **Planejamento:** Emitir plano de execução listando arquivos a criar/modificar e como respeitam as cláusulas pétreas
-0.5. **Análise de Impacto (Impact Graph):** Antes de qualquer código, listar TODOS os arquivos que importam os módulos afetados e classificar impacto: `[QUEBRA CONTRATO]` ou `[INTERNO]` (ver Cláusula 26)
+0.5. **Análise de Impacto (Impact Graph):** Antes de qualquer código, listar TODOS os arquivos que importam os módulos afetados e classificar impacto: `[QUEBRA CONTRATO]` ou `[INTERNO]` (ver Cláusula 27)
 1. Verificar **glossário** para garantir consistência de termos
-2. Identificar/criar **Protocol** (Port) necessário (respeitando Regra da Fronteira de I/O, §20)
-3. Criar **testes** baseados no contrato (que falham inicialmente)
-4. Implementar **lógica de domínio** (funções puras)
+2. Identificar/criar **Protocol** (Port) necessário (respeitando Regra da Fronteira de I/O, §21)
+3. Criar **testes** baseados no contrato seguindo ciclo TDD (§3): testes falhando primeiro (Red), implementação mínima (Green, passo 4), refatoração com testes verdes (Refactor)
+4. Implementar **lógica de domínio** (funções puras) — fase Green do TDD
 5. Implementar **Adapter** se necessário
 6. Validar com **mypy** e **pytest**
 7. Atualizar **container.py** se nova dependência
@@ -554,26 +604,27 @@ Ao implementar funcionalidades, seguir ordem estrita. O fluxo é **proporcional 
 
 > **Regra de proporcionalidade:** Para mudanças Triviais, executar apenas validação (passo 6) e monitoramento (passo 10). Para mudanças Menores, começar nos testes (passo 3). A classificação errada para baixo (tratar Maior como Menor) é uma violação; para cima (tratar Trivial como Maior) é apenas ineficiência.
 
-### 20. YAGNI Rigoroso (Proibição de Abstrações Prematuras)
+### 21. YAGNI Rigoroso (Proibição de Abstrações Prematuras)
 
 - **Não criar** interfaces/Protocols "apenas porque pode precisar no futuro"
 - **Proibido** criar "base classes", "abstract services" ou "helpers genéricos" sem uso concreto atual
 - A IA tende a over-engineer; esta cláusula força simplicidade
+- **Alinhamento com TDD (§3):** A fase Green do ciclo TDD reforça YAGNI naturalmente — implementar apenas o mínimo necessário para o teste passar
 
-#### Regra da Fronteira de I/O (Reconciliação §4/§6 vs §20)
+#### Regra da Fronteira de I/O (Reconciliação §5/§7 vs §21)
 
-O conflito entre "Protocol para tudo" (§4/§6) e "só na segunda implementação" é resolvido por um critério determinístico:
+O conflito entre "Protocol para tudo" (§5/§7) e "só na segunda implementação" é resolvido por um critério determinístico:
 
 | Tipo de componente                                                       | Quando criar Protocol                        | Cláusula prevalente |
 | ------------------------------------------------------------------------ | -------------------------------------------- | ------------------- |
-| **Dependência externa de I/O** (LLM, storage, API, DB, serviços de rede) | Desde a **primeira** implementação           | §4/§6 prevalece     |
-| **Lógica interna de domínio** (cálculos, transformações, validações)     | Apenas na **segunda** implementação concreta | §20 prevalece       |
+| **Dependência externa de I/O** (LLM, storage, API, DB, serviços de rede) | Desde a **primeira** implementação           | §5/§7 prevalece     |
+| **Lógica interna de domínio** (cálculos, transformações, validações)     | Apenas na **segunda** implementação concreta | §21 prevalece       |
 
 **Critério decisivo:** Se o componente **faz I/O ou depende de infraestrutura externa**, Protocol é obrigatório desde o início (o custo de desacoplar uma dependência externa rígida depois é maior que o custo da abstração). Se é **lógica pura**, comece com função concreta e extraia Protocol só quando surgir variação real de comportamento.
 
 > **Teste mental:** "Se eu precisar trocar este componente por uma implementação fake em testes, eu precisaria de mock/patch?" Se sim → Protocol obrigatório. Se basta chamar a função com argumentos diferentes → YAGNI prevalece.
 
-### 21. Convenções Determinísticas de Nomenclatura
+### 22. Convenções Determinísticas de Nomenclatura
 
 Para eliminar ambiguidade e facilitar navegação:
 
@@ -588,7 +639,7 @@ Para eliminar ambiguidade e facilitar navegação:
 - **Testes:** `test_[módulo].py` espelhando a estrutura de `src/` (ex: `tests/unit/test_create_user.py` testa `src/domain/services/create_user.py`)
 - **Fixtures:** em `conftest.py` do diretório de testes relevante — nunca em arquivos de teste individuais
 
-### 22. Proibição de Magia e Metaprogramação
+### 23. Proibição de Magia e Metaprogramação
 
 LLMs quebram completamente com lógica implícita invisível. É **terminantemente proibido**:
 
@@ -601,7 +652,7 @@ LLMs quebram completamente com lógica implícita invisível. É **terminantemen
 
 **Regra:** Se o comportamento não é óbvio lendo o código linha a linha, está proibido.
 
-### 23. Mapa de Contexto do Projeto (Automatizado)
+### 24. Mapa de Contexto do Projeto (Automatizado)
 
 Para projetos com mais de 20 arquivos, manter um **mapa de navegação** atualizado em `docs/map.md`:
 
@@ -638,9 +689,9 @@ python scripts/generate_map.py --src-dir src --output docs/map.md
 | `services/create_user.py` | 42     | Lógica pura de criação de usuário       |
 ```
 
-### 24. Erros com Semântica Formal (Contrato Unificado)
+### 25. Erros com Semântica Formal (Contrato Unificado)
 
-Todo erro de domínio segue um **contrato semântico único**, unificado com o Result Pattern (§10):
+Todo erro de domínio segue um **contrato semântico único**, unificado com o Result Pattern (§11):
 
 ```python
 @runtime_checkable
@@ -658,8 +709,8 @@ class DomainError(Protocol):
 > **Implementação de referência:** A definição canônica do Protocol `DomainError` está em `scripts/shared/result.py`, junto com `Success`, `Failure` e `Result`. Use `@runtime_checkable` para permitir verificação com `isinstance()` em adapters de apresentação.
 
 **Hierarquia definitiva:**
-- §10 define o **padrão de fluxo** (`Result[T, E]` com `Success`/`Failure`)
-- §24 define o **contrato semântico** que todo `E` em `Failure[E]` deve satisfazer
+- §11 define o **padrão de fluxo** (`Result[T, E]` com `Success`/`Failure`)
+- §25 define o **contrato semântico** que todo `E` em `Failure[E]` deve satisfazer
 - Todo tipo usado como `E` em `Result[T, E]` **deve** implementar `DomainError`
 - Enums sem `code`/`message` são **proibidos** como tipo de erro em Results
 
@@ -674,7 +725,7 @@ Isso permite:
 
 ## VIII. Integridade em Transições e Migrações
 
-### 25. Integridade Radical em Transições (Fail-Fast Auditável)
+### 26. Integridade Radical em Transições (Fail-Fast Auditável)
 
 Durante refatorações estruturais ou migrações (ex: troca de banco, mudança de API), a integridade dos dados tem **prioridade absoluta** sobre a disponibilidade.
 
@@ -712,7 +763,7 @@ logger.error(
 
 > **Regra:** `try...except...warning` em operações de escrita é **terminantemente proibido** quando `STRICT_ARCHITECTURE_MODE=true`.
 
-### 26. Rastreabilidade de Dependências (Impact Graph)
+### 27. Rastreabilidade de Dependências (Impact Graph)
 
 Antes de qualquer alteração em **Interfaces, Protocols ou Schemas de Dados**, a IA deve gerar um **Grafo de Impacto** explícito:
 
@@ -744,7 +795,7 @@ Antes de qualquer alteração em **Interfaces, Protocols ou Schemas de Dados**, 
 - [ ] mypy passa sem erros
 ```
 
-### 27. Definition of Done para Migrações
+### 28. Definition of Done para Migrações
 
 Migrações de infraestrutura não são "troca de código", são **garantia de equivalência**.
 
@@ -776,6 +827,7 @@ def test_save_and_retrieve(storage: StoragePort) -> None:
 
 | Prática                         | Impacto                          |
 | ------------------------------- | -------------------------------- |
+| TDD obrigatório                 | Código nasce testado e mínimo    |
 | Arquivos pequenos (<200 linhas) | IA lê contexto completo          |
 | Estrutura previsível            | IA navega sem "descobrir"        |
 | Protocols como spec             | IA sabe o que implementar        |
@@ -822,13 +874,13 @@ scripts/
 ├── check_all.py              # Orquestrador (§1) — mypy → pytest → todos os checks
 ├── check_all.bat             # Wrapper Windows
 ├── check_all.sh              # Wrapper Unix
-├── check_imports.py          # Validação de fronteiras hexagonais (§5)
-├── check_file_sizes.py       # Validação de limite de linhas (§8)
-├── generate_map.py           # Geração de docs/map.md (§23)
-├── validate_env.py           # Geração de .env.example e validação (§12)
-├── check_explorations.py     # Governança de sandbox/ (§14)
+├── check_imports.py          # Validação de fronteiras hexagonais (§6)
+├── check_file_sizes.py       # Validação de limite de linhas (§9)
+├── generate_map.py           # Geração de docs/map.md (§24)
+├── validate_env.py           # Geração de .env.example e validação (§13)
+├── check_explorations.py     # Governança de sandbox/ (§15)
 └── shared/
-    └── result.py             # Result[T,E], DomainError Protocol (§10/§24)
+    └── result.py             # Result[T,E], DomainError Protocol (§11/§25)
 ```
 
 **Características do kit:**
