@@ -31,6 +31,9 @@ class LogEvent(TypedDict):
     context: str        # Módulo/função origem
     error_code: str | None
     message: str
+    # Campos obrigatórios para rastreio de consistência (ver Cláusula 25)
+    fallback_activated: bool | None
+    data_consistency_risk: Literal["NONE", "LOW", "HIGH"] | None
 ```
 
 ### 2. Verificação de Execução Obrigatória
@@ -51,6 +54,7 @@ Toda modificação de código requer, além da execução dos testes unitários:
 - [ ] Executou o código (backend e frontend)
 - [ ] Monitorou a execução por pelo menos 1 minuto
 - [ ] Verificou logs e arquivos de estado para garantir que não há erros silenciosos
+- [ ] Confirmou **ausência** de `FALLBACK_ACTIVATED` ou `data_consistency_risk: HIGH` nos logs
 - [ ] Scripts .bat testados (se modificados)
 ```
 
@@ -360,6 +364,7 @@ Portanto:
 Ao implementar funcionalidades, seguir ordem estrita:
 
 0. **Planejamento:** Emitir plano de execução listando arquivos a criar/modificar e como respeitam as cláusulas pétreas
+0.5. **Análise de Impacto (Impact Graph):** Antes de qualquer código, listar TODOS os arquivos que importam os módulos afetados e classificar impacto: `[QUEBRA CONTRATO]` ou `[INTERNO]` (ver Cláusula 26)
 1. Verificar **glossário** para garantir consistência de termos
 2. Identificar/criar **Protocol** (Port) necessário
 3. Criar **testes** baseados no contrato (que falham inicialmente)
@@ -442,6 +447,94 @@ Isso permite:
 
 ---
 
+## VIII. Integridade em Transições e Migrações
+
+### 25. Integridade Radical em Transições (Strict Mode)
+
+Durante refatorações estruturais ou migrações (ex: troca de banco, mudança de API), a integridade dos dados tem **prioridade absoluta** sobre a disponibilidade.
+
+- **Modo Estrito:** O sistema deve suportar uma flag `STRICT_ARCHITECTURE_MODE=true` (via `.env`). Quando ativa:
+  - Falhas em sistemas secundários (ex: dual-write) disparam **exceções bloqueantes** (crash), nunca warnings
+  - Discrepâncias de contrato interrompem a execução
+- **Proibição de Degradação Silenciosa:** É proibido capturar exceções críticas e logar apenas como `WARNING` sem interromper o fluxo, a menos que explicitamente documentado como estratégia de resiliência em produção estável
+- **Logs de Pânico:** Se um fallback for inevitável, deve ser logado com nível `ERROR` e metadados obrigatórios:
+
+```python
+# Formato obrigatório para fallbacks
+logger.error(
+    "Fallback ativado",
+    extra={
+        "fallback_activated": True,
+        "data_consistency_risk": "HIGH",
+        "risk": "DATA_CONSISTENCY",
+        "action": "FALLBACK_TRIGGERED",
+        "original_error": str(exception),
+    },
+)
+```
+
+> **Regra:** `try...except...warning` em operações de escrita é **terminantemente proibido** quando `STRICT_ARCHITECTURE_MODE=true`.
+
+### 26. Rastreabilidade de Dependências (Impact Graph)
+
+Antes de qualquer alteração em **Interfaces, Protocols ou Schemas de Dados**, a IA deve gerar um **Grafo de Impacto** explícito:
+
+1. **Listar Produtor:** O arquivo que será modificado
+2. **Listar Consumidores Diretos:** Arquivos que importam o produtor
+3. **Listar Consumidores Transitivos:** Arquivos que dependem do fluxo, mesmo sem import direto
+4. **Checklist de Propagação:** A tarefa só é concluída quando todos os arquivos listados foram validados ou refatorados
+
+> *A IA é proibida de assumir que uma mudança de contrato é isolada. Se a assinatura muda, todos os consumidores devem ser inspecionados.*
+
+**Formato obrigatório do Impact Graph:**
+```markdown
+## Impact Graph — [Descrição da Mudança]
+
+### Produtor
+- `src/ports/outbound/repository_port.py` — Método `save()` alterado
+
+### Consumidores Diretos
+- `src/adapters/outbound/postgres_adapter.py` — [QUEBRA CONTRATO]
+- `src/adapters/outbound/file_adapter.py` — [QUEBRA CONTRATO]
+
+### Consumidores Transitivos
+- `src/config/container.py` — [INTERNO] (composição)
+- `scripts/run_producer.py` — [INTERNO] (invocação)
+
+### Status de Propagação
+- [ ] Todos os consumidores validados
+- [ ] Testes de contrato atualizados
+- [ ] mypy passa sem erros
+```
+
+### 27. Definition of Done para Migrações
+
+Migrações de infraestrutura não são "troca de código", são **garantia de equivalência**.
+
+- **Dualidade de Testes:** Obrigatória a execução de **Testes de Contrato** agnósticos que validam tanto a implementação legada quanto a nova
+- **Prova de Equivalência:** A migração só termina quando a suite de testes passa **verde** para ambos os adapters simultaneamente
+- **Limpeza Separada:** A remoção do código antigo é uma etapa separada, executada apenas após a validação em produção (stage/prod) do novo código
+- **Proibição de Migração Parcial:** Não é permitido declarar migração completa enquanto existirem caminhos de execução que ainda dependam do adapter legado sem cobertura de testes
+
+```python
+# Exemplo: teste de contrato agnóstico para migrações
+import pytest
+from src.ports.outbound.storage_port import StoragePort
+
+@pytest.fixture(params=["legacy_adapter", "new_adapter"])
+def storage(request) -> StoragePort:
+    if request.param == "legacy_adapter":
+        return LegacyFileStorage()
+    return NewCloudStorage()
+
+def test_save_and_retrieve(storage: StoragePort) -> None:
+    """Deve produzir resultado idêntico em ambos os adapters."""
+    storage.save("key", "value")
+    assert storage.retrieve("key") == "value"
+```
+
+---
+
 ## Resumo: O que Maximiza Sucesso da IA
 
 | Prática                         | Impacto                          |
@@ -461,6 +554,9 @@ Isso permite:
 | Proibição de magia              | Comportamento sempre explícito   |
 | Mapa de contexto                | IA navega sem "descobrir"        |
 | .env sincronizado               | Configuração sempre completa     |
+| Strict Mode em transições       | Falhas nunca são silenciosas     |
+| Impact Graph obrigatório        | Migrações sem efeitos colaterais |
+| DoD para migrações              | Equivalência comprovada          |
 
 ---
 
